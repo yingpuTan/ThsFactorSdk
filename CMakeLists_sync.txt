@@ -28,9 +28,18 @@ add_executable(demo_sync
     src/ThsFactorSdkSync.cpp
 )
 
+# 编译并发测试程序
+add_executable(test_concurrent
+    demo/test_concurrent.cpp
+    src/ThsFactorSdkSync.cpp
+)
+
 # 设置运行时库路径，确保能找到LHSession.dll
 if(WIN32)
     set_target_properties(demo_sync PROPERTIES
+        VS_DEBUGGER_ENVIRONMENT "PATH=${CMAKE_SOURCE_DIR}/dll;${CMAKE_SOURCE_DIR}/lib;$ENV{PATH}"
+    )
+    set_target_properties(test_concurrent PROPERTIES
         VS_DEBUGGER_ENVIRONMENT "PATH=${CMAKE_SOURCE_DIR}/dll;${CMAKE_SOURCE_DIR}/lib;$ENV{PATH}"
     )
 endif()

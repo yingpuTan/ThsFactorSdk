@@ -20,6 +20,10 @@ private:
         bool completed;
         std::chrono::steady_clock::time_point timestamp;
         
+        // 存储响应数据的字符串，确保数据生命周期
+        std::string response_data;
+        std::string error_message;
+        
         PendingRequest() : completed(false) {}
     };
 
@@ -38,7 +42,7 @@ private:
 
     // 辅助函数
     static std::string ExtractUuidFromJson(const std::string& json_str);
-    static bool ParseJsonResponse(const std::string& json_str, SyncResponse& response);
+    static bool ParseJsonResponse(const std::string& json_str, SyncResponse& response, PendingRequest* request = nullptr);
 
 public:
     static SyncManager& GetInstance() {
@@ -64,6 +68,15 @@ public:
         
         if (ret == 0) {
             initialized.store(true);
+            
+            // 启动定期清理线程
+            std::thread([this]() {
+                while (initialized.load()) {
+                    std::this_thread::sleep_for(std::chrono::seconds(10));
+                    CleanupExpiredRequests();
+                }
+            }).detach();
+            
             return true;
         }
         return false;
@@ -185,7 +198,7 @@ std::string SyncManager::ExtractUuidFromJson(const std::string& json_str) {
 }
 
 // 解析JSON响应
-bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& response) {
+bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& response, PendingRequest* request) {
     // 简单的JSON解析逻辑
     // 检查是否包含错误信息
     if (json_str.find("\"error\"") != std::string::npos) {
@@ -198,8 +211,14 @@ bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& r
             pos += 11; // 跳过 "message":"
             size_t end = json_str.find("\"", pos);
             if (end != std::string::npos) {
-                // 注意：这里需要将std::string转换为const char*
-                // 在实际实现中，应该使用静态字符串或内存管理
+                std::string error_msg = json_str.substr(pos, end - pos);
+                if (request) {
+                    request->error_message = error_msg;
+                    response.message = request->error_message.c_str();
+                } else {
+                    response.message = "服务器返回错误";
+                }
+            } else {
                 response.message = "服务器返回错误";
             }
         }
@@ -211,7 +230,13 @@ bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& r
         response.message = "操作完成";
     }
     
-    response.data = json_str.c_str();
+    // 存储响应数据到request中，确保数据生命周期
+    if (request) {
+        request->response_data = json_str;
+        response.data = request->response_data.c_str();
+    } else {
+        response.data = "";
+    }
     return true;
 }
 
@@ -224,8 +249,14 @@ void SyncManager::OnLoginCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        ParseJsonResponse(response_str, response);
-        GetInstance().HandleResponse(uuid, response);
+        // 获取对应的request对象
+        auto& instance = GetInstance();
+        std::lock_guard<std::mutex> lock(instance.requests_mutex);
+        auto it = instance.pending_requests.find(uuid);
+        if (it != instance.pending_requests.end()) {
+            ParseJsonResponse(response_str, response, it->second.get());
+            instance.HandleResponse(uuid, response);
+        }
     }
 }
 
@@ -237,8 +268,14 @@ void SyncManager::OnQueryCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        ParseJsonResponse(response_str, response);
-        GetInstance().HandleResponse(uuid, response);
+        // 获取对应的request对象
+        auto& instance = GetInstance();
+        std::lock_guard<std::mutex> lock(instance.requests_mutex);
+        auto it = instance.pending_requests.find(uuid);
+        if (it != instance.pending_requests.end()) {
+            ParseJsonResponse(response_str, response, it->second.get());
+            instance.HandleResponse(uuid, response);
+        }
     }
 }
 
@@ -250,8 +287,14 @@ void SyncManager::OnSubscribeCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        ParseJsonResponse(response_str, response);
-        GetInstance().HandleResponse(uuid, response);
+        // 获取对应的request对象
+        auto& instance = GetInstance();
+        std::lock_guard<std::mutex> lock(instance.requests_mutex);
+        auto it = instance.pending_requests.find(uuid);
+        if (it != instance.pending_requests.end()) {
+            ParseJsonResponse(response_str, response, it->second.get());
+            instance.HandleResponse(uuid, response);
+        }
     }
 }
 
@@ -263,8 +306,14 @@ void SyncManager::OnUnSubscribeCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        ParseJsonResponse(response_str, response);
-        GetInstance().HandleResponse(uuid, response);
+        // 获取对应的request对象
+        auto& instance = GetInstance();
+        std::lock_guard<std::mutex> lock(instance.requests_mutex);
+        auto it = instance.pending_requests.find(uuid);
+        if (it != instance.pending_requests.end()) {
+            ParseJsonResponse(response_str, response, it->second.get());
+            instance.HandleResponse(uuid, response);
+        }
     }
 }
 
@@ -363,6 +412,26 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
         SyncResponse response;
         response.code = -1;
         response.message = "时间参数为空";
+        response.data = "";
+        return response;
+    }
+    
+    // 验证时间格式 (YYYYMMDDHHmmss)
+    std::string begin_str(begin);
+    std::string end_str(end);
+    if (begin_str.length() != 14 || end_str.length() != 14) {
+        SyncResponse response;
+        response.code = -1;
+        response.message = "时间格式错误，应为YYYYMMDDHHmmss格式";
+        response.data = "";
+        return response;
+    }
+    
+    // 验证时间范围
+    if (begin_str >= end_str) {
+        SyncResponse response;
+        response.code = -1;
+        response.message = "开始时间必须早于结束时间";
         response.data = "";
         return response;
     }
