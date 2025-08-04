@@ -39,8 +39,8 @@ typedef struct {
 #pragma pack(push, 1)
 typedef struct {
     int code;              // 返回码，0表示成功
-    std::string message;   // 错误信息
-    std::string data;      // 响应数据
+    const char* message;   // 错误信息
+    const char* data;      // 响应数据
 } SyncResponse;
 #pragma pack(pop)
 

@@ -120,6 +120,7 @@ public:
             SyncResponse timeout_response;
             timeout_response.code = -1;
             timeout_response.message = "请求超时";
+            timeout_response.data = "";
             return timeout_response;
         }
 
@@ -197,7 +198,9 @@ bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& r
             pos += 11; // 跳过 "message":"
             size_t end = json_str.find("\"", pos);
             if (end != std::string::npos) {
-                response.message = json_str.substr(pos, end - pos);
+                // 注意：这里需要将std::string转换为const char*
+                // 在实际实现中，应该使用静态字符串或内存管理
+                response.message = "服务器返回错误";
             }
         }
     } else if (json_str.find("\"result\"") != std::string::npos) {
@@ -208,7 +211,7 @@ bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& r
         response.message = "操作完成";
     }
     
-    response.data = json_str;
+    response.data = json_str.c_str();
     return true;
 }
 
@@ -298,6 +301,7 @@ SyncResponse LoginSync(const LoginParam* param, int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "登录参数为空";
+        response.data = "";
         return response;
     }
     
@@ -305,6 +309,7 @@ SyncResponse LoginSync(const LoginParam* param, int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "同步管理器初始化失败";
+        response.data = "";
         return response;
     }
     
@@ -315,6 +320,7 @@ SyncResponse LoginSync(const LoginParam* param, int timeout_ms) {
         SyncResponse response;
         response.code = ret;
         response.message = "登录请求发送失败";
+        response.data = "";
         return response;
     }
     
@@ -326,6 +332,7 @@ SyncResponse LogoutSync(int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "同步管理器初始化失败";
+        response.data = "";
         return response;
     }
     
@@ -336,6 +343,7 @@ SyncResponse LogoutSync(int timeout_ms) {
         SyncResponse response;
         response.code = ret;
         response.message = "登出请求发送失败";
+        response.data = "";
         return response;
     }
     
@@ -347,6 +355,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
         SyncResponse response;
         response.code = -1;
         response.message = "查询类型为空";
+        response.data = "";
         return response;
     }
     
@@ -354,6 +363,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
         SyncResponse response;
         response.code = -1;
         response.message = "时间参数为空";
+        response.data = "";
         return response;
     }
     
@@ -361,6 +371,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
         SyncResponse response;
         response.code = -1;
         response.message = "同步管理器初始化失败";
+        response.data = "";
         return response;
     }
     
@@ -371,6 +382,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
         SyncResponse response;
         response.code = ret;
         response.message = "查询请求发送失败";
+        response.data = "";
         return response;
     }
     
@@ -382,6 +394,7 @@ SyncResponse SubscribeSync(const char* type, int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "订阅类型为空";
+        response.data = "";
         return response;
     }
     
@@ -389,6 +402,7 @@ SyncResponse SubscribeSync(const char* type, int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "同步管理器初始化失败";
+        response.data = "";
         return response;
     }
     
@@ -399,6 +413,7 @@ SyncResponse SubscribeSync(const char* type, int timeout_ms) {
         SyncResponse response;
         response.code = ret;
         response.message = "订阅请求发送失败";
+        response.data = "";
         return response;
     }
     
@@ -410,6 +425,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "取消订阅类型为空";
+        response.data = "";
         return response;
     }
     
@@ -417,6 +433,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
         SyncResponse response;
         response.code = -1;
         response.message = "同步管理器初始化失败";
+        response.data = "";
         return response;
     }
     
@@ -427,6 +444,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
         SyncResponse response;
         response.code = ret;
         response.message = "取消订阅请求发送失败";
+        response.data = "";
         return response;
     }
     

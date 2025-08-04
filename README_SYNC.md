@@ -52,8 +52,8 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms = 5000);
 ```cpp
 typedef struct {
     int code;              // 返回码，0表示成功
-    std::string message;   // 错误信息
-    std::string data;      // 响应数据（JSON格式）
+    const char* message;   // 错误信息
+    const char* data;      // 响应数据（JSON格式）
 } SyncResponse;
 ```
 
@@ -170,8 +170,27 @@ switch (response.code) {
 
 ## 编译说明
 
-### 使用CMake编译
+### 使用CMake编译（推荐）
 
+#### 方法一：直接使用LHSession.dll（推荐）
+```bash
+# Windows
+build_sync_dll.bat
+
+# Linux
+mkdir build_sync_dll
+cd build_sync_dll
+cmake -S .. -B . -G "Visual Studio 17 2022" -A x64 -DCMAKE_PROJECT_NAME=ThsFactorSdkSync
+cmake --build . --config Release
+```
+
+编译完成后，可执行文件位于 `build_sync_dll/bin/Release/` 目录下。
+
+**注意**：
+- 使用此方法需要确保 `LHSession.dll` 在 `dll/` 目录中
+- 同步接口代码直接编译到可执行文件中，无需额外的DLL
+
+#### 方法二：编译完整库
 ```bash
 mkdir build
 cd build
@@ -184,12 +203,8 @@ make
 ### 手动编译
 
 ```bash
-# 编译同步接口库
-g++ -c -Iinclude src/ThsFactorSdkSync.cpp -o ThsFactorSdkSync.o
-g++ -shared -o libThsFactorSdkSync.dll ThsFactorSdkSync.o -Llib -lThsFactorSdk
-
-# 编译示例程序
-g++ -Iinclude demo/main_sync.cpp -L. -lThsFactorSdkSync -Llib -lThsFactorSdk -o demo_sync
+# 编译示例程序（直接链接LHSession.dll）
+g++ -Iinclude demo/main_sync.cpp src/ThsFactorSdkSync.cpp -o demo_sync
 ```
 
 ## 注意事项
@@ -226,8 +241,9 @@ g++ -Iinclude demo/main_sync.cpp -L. -lThsFactorSdkSync -Llib -lThsFactorSdk -o 
 ### 常见问题
 
 1. **初始化失败**
-   - 检查ThsFactorSdk库是否正确加载
+   - 检查LHSession.dll是否正确加载
    - 确认DLL文件路径正确
+   - 确保dll目录中存在LHSession.dll
 
 2. **请求超时**
    - 检查网络连接
@@ -240,6 +256,11 @@ g++ -Iinclude demo/main_sync.cpp -L. -lThsFactorSdkSync -Llib -lThsFactorSdk -o 
    - 检查时间格式是否正确（YYYYMMDDHHmmss）
    - 确认开始时间早于结束时间
    - 查看服务器日志
+
+4. **DLL加载失败**
+   - 确保LHSession.dll在可执行文件同目录或系统PATH中
+   - 检查DLL依赖项是否完整
+   - 使用Dependency Walker等工具检查DLL依赖
 
 ### 调试技巧
 

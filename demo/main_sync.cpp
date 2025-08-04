@@ -12,13 +12,13 @@ void OnPushData(const char* push, int len) {
     if (!push || len <= 0) return;
     
     rapidjson::Document dom;
-    if (dom.Parse(result, len).HasParseError()) {
-        printf("推送回调JSON解析失败\n");
+    if (dom.Parse(push, len).HasParseError()) {
+        std::cout << "推送回调JSON解析失败" << std::endl;
         return;
     }
     const char* type = dom.HasMember("type") && dom["type"].IsString() ? dom["type"].GetString() : "";
     const char* data = dom.HasMember("data") && dom["data"].IsString() ? dom["data"].GetString() : "";
-    printf("收到推送 type：%s  data:%s\n", type, data);
+    std::cout << "收到推送 type：" << type << "  data:" << data << std::endl;
 }
 
 // 辅助函数：打印同步响应结果
