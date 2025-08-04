@@ -35,10 +35,6 @@ typedef struct {
 } LoginParam;
 #pragma pack(pop)
 
-// 同步响应结果结构体
-#pragma pack(push, 1)
-
-
 extern "C"
 {
 	/// <summary>

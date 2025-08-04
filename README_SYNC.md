@@ -11,7 +11,8 @@
 - **时间范围查询**：查询接口支持指定时间范围，格式为YYYYMMDDHHmmss
 - **推送回调**：支持注册推送回调函数，接收订阅后的实时数据
 - **向后兼容**：保留原有的异步接口，不影响现有代码
-- **线程安全**：支持多线程并发调用
+- **线程安全**：支持多线程并发调用，每个线程的数据完全独立
+- **内存安全**：独立的内存管理机制，避免野指针和多线程数据竞争
 - **自动清理**：自动清理过期的等待请求
 
 ## 接口说明
@@ -54,7 +55,15 @@ typedef struct {
     int code;              // 返回码，0表示成功
     const char* message;   // 错误信息
     const char* data;      // 响应数据（JSON格式）
+    void* data_owner;      // 数据所有者，用于内存管理
 } SyncResponse;
+```
+
+### 内存管理函数
+
+```cpp
+// 清理响应数据（必须调用）
+void CleanupSyncResponse(SyncResponse* response);
 ```
 
 ## 使用示例
@@ -92,33 +101,54 @@ int main() {
     SyncResponse login_response = LoginSync(&param, 10000);
     if (login_response.code != 0) {
         std::cout << "登录失败: " << login_response.message << std::endl;
+        CleanupSyncResponse(&login_response);
         CleanupSyncManager();
         return -1;
     }
+    
+    // 使用登录响应数据
+    if (login_response.data) {
+        std::cout << "登录成功: " << login_response.data << std::endl;
+    }
+    
+    // 清理登录响应数据
+    CleanupSyncResponse(&login_response);
 
     // 4. 同步查询
     SyncResponse query_response = QuerySync("hxfnews", "20240101000000", "20240131235959", 15000);
     if (query_response.code == 0) {
         std::cout << "查询成功: " << query_response.data << std::endl;
     }
+    
+    // 清理查询响应数据
+    CleanupSyncResponse(&query_response);
 
     // 5. 同步订阅
     SyncResponse subscribe_response = SubscribeSync("hxfnews", 10000);
     if (subscribe_response.code == 0) {
         std::cout << "订阅成功" << std::endl;
     }
+    
+    // 清理订阅响应数据
+    CleanupSyncResponse(&subscribe_response);
 
     // 6. 同步取消订阅
     SyncResponse unsubscribe_response = UnSubscribeSync("hxfnews", 10000);
     if (unsubscribe_response.code == 0) {
         std::cout << "取消订阅成功" << std::endl;
     }
+    
+    // 清理取消订阅响应数据
+    CleanupSyncResponse(&unsubscribe_response);
 
     // 7. 同步登出
     SyncResponse logout_response = LogoutSync(10000);
     if (logout_response.code == 0) {
         std::cout << "登出成功" << std::endl;
     }
+    
+    // 清理登出响应数据
+    CleanupSyncResponse(&logout_response);
 
     // 8. 清理同步管理器
     CleanupSyncManager();
@@ -134,11 +164,8 @@ int main() {
 void OnPushData(const char* push, int len) {
     if (!push || len <= 0) return;
     
-    std::string push_data(push, len);
-    std::cout << "收到推送数据: " << push_data << std::endl;
-    
-    // 可以在这里解析JSON数据
-    // 例如使用rapidjson解析推送内容
+    std::cout << "收到推送数据，长度: " << len << std::endl;
+    std::cout << "推送内容: " << push << std::endl;
 }
 
 // 在初始化时注册推送回调
@@ -150,6 +177,9 @@ if (subscribe_response.code == 0) {
     std::cout << "订阅成功，等待推送数据..." << std::endl;
     // 推送数据会通过OnPushData回调函数接收
 }
+
+// 清理订阅响应数据
+CleanupSyncResponse(&subscribe_response);
 ```
 
 ### 错误处理
@@ -167,6 +197,9 @@ switch (response.code) {
         std::cout << "操作失败: " << response.message << std::endl;
         break;
 }
+
+// 清理响应数据
+CleanupSyncResponse(&response);
 ```
 
 ## 编译说明
@@ -215,14 +248,16 @@ g++ -Iinclude demo/main_sync.cpp src/ThsFactorSdkSync.cpp -o demo_sync
 3. **超时设置**：根据网络环境和业务需求合理设置超时时间
 4. **时间格式**：查询接口的时间参数必须使用YYYYMMDDHHmmss格式
 5. **时间范围**：确保开始时间早于结束时间，且时间格式正确
-6. **线程安全**：同步接口支持多线程并发调用
+6. **线程安全**：同步接口支持多线程并发调用，每个线程的数据完全独立
 7. **资源清理**：程序结束时调用 `CleanupSyncManager()` 清理资源
 8. **错误处理**：始终检查返回码，处理可能的错误情况
 9. **推送处理**：推送数据通过注册的回调函数异步接收
-10. **内存管理**：响应数据存储在请求对象中，确保数据生命周期和线程安全
+10. **内存管理**：**必须调用 `CleanupSyncResponse()` 清理响应数据，避免内存泄漏**
 11. **自动清理**：系统会自动清理超过30秒的过期请求
 12. **参数验证**：接口会自动验证时间格式和范围
 13. **并发安全**：支持多线程并发调用，每个请求的数据独立存储
+14. **数据生命周期**：响应数据在调用 `CleanupSyncResponse()` 前有效
+15. **多线程使用**：每个线程可以独立调用同步接口，数据不会相互影响
 
 ## 与异步接口的区别
 
@@ -233,6 +268,8 @@ g++ -Iinclude demo/main_sync.cpp src/ThsFactorSdkSync.cpp -o demo_sync
 | 超时控制 | 无 | 可配置 |
 | 使用复杂度 | 较高 | 较低 |
 | 性能 | 更好 | 稍差 |
+| 内存管理 | 自动 | 手动清理 |
+| 线程安全 | 需要额外处理 | 内置支持 |
 
 ## 性能建议
 
@@ -240,6 +277,8 @@ g++ -Iinclude demo/main_sync.cpp src/ThsFactorSdkSync.cpp -o demo_sync
 2. **批量操作**：对于多个请求，考虑使用异步接口
 3. **错误重试**：对于网络错误，实现重试机制
 4. **连接复用**：避免频繁的登录登出操作
+5. **及时清理内存**：使用完响应数据后立即调用 `CleanupSyncResponse()`
+6. **多线程优化**：充分利用多线程并发调用提高性能
 
 ## 故障排除
 
@@ -267,9 +306,116 @@ g++ -Iinclude demo/main_sync.cpp src/ThsFactorSdkSync.cpp -o demo_sync
    - 检查DLL依赖项是否完整
    - 使用Dependency Walker等工具检查DLL依赖
 
+5. **内存泄漏**
+   - 确保每次调用同步接口后都调用 `CleanupSyncResponse()`
+   - 检查是否有遗漏的清理调用
+   - 使用内存检测工具验证
+
+6. **多线程数据混乱**
+   - 确保每个线程独立调用同步接口
+   - 检查是否有共享的响应对象
+   - 验证线程间的数据隔离
+
 ### 调试技巧
 
 1. 启用详细日志输出
 2. 使用网络抓包工具分析请求
 3. 检查服务器响应格式
 4. 验证UUID生成和匹配逻辑
+5. 使用内存检测工具检查内存泄漏
+6. 多线程环境下验证数据一致性
+7. 检查响应数据的生命周期管理
+
+## 多线程使用示例
+
+```cpp
+#include "ThsFactorSdkSync.h"
+#include <iostream>
+#include <thread>
+#include <vector>
+
+// 线程测试函数
+void TestThread(int thread_id) {
+    // 每个线程独立初始化
+    if (InitSyncManager(nullptr) != 0) {
+        std::cout << "线程 " << thread_id << " 初始化失败！" << std::endl;
+        return;
+    }
+    
+    // 创建登录参数
+    LoginParam param;
+    param.ip = "121.52.252.12";
+    param.port = 9999;
+    param.account = "test_account";
+    param.password = "test_password";
+    
+    // 发起登录请求
+    SyncResponse login_response = LoginSync(&param, 5000);
+    
+    // 检查登录结果
+    if (login_response.code == 0) {
+        std::cout << "线程 " << thread_id << " 登录成功" << std::endl;
+        if (login_response.data) {
+            std::cout << "线程 " << thread_id << " 登录数据: " << login_response.data << std::endl;
+        }
+    } else {
+        std::cout << "线程 " << thread_id << " 登录失败: " << login_response.message << std::endl;
+    }
+    
+    // 清理登录响应数据
+    CleanupSyncResponse(&login_response);
+    
+    // 发起查询请求
+    SyncResponse query_response = QuerySync("test_type", "20240101000000", "20240131235959", 10000);
+    
+    // 检查查询结果
+    if (query_response.code == 0) {
+        std::cout << "线程 " << thread_id << " 查询成功" << std::endl;
+        if (query_response.data) {
+            std::cout << "线程 " << thread_id << " 查询数据: " << query_response.data << std::endl;
+        }
+    } else {
+        std::cout << "线程 " << thread_id << " 查询失败: " << query_response.message << std::endl;
+    }
+    
+    // 清理查询响应数据
+    CleanupSyncResponse(&query_response);
+    
+    // 发起登出请求
+    SyncResponse logout_response = LogoutSync(5000);
+    
+    // 清理登出响应数据
+    CleanupSyncResponse(&logout_response);
+    
+    // 清理同步管理器
+    CleanupSyncManager();
+    
+    std::cout << "线程 " << thread_id << " 测试完成" << std::endl;
+}
+
+int main() {
+    std::cout << "开始多线程测试..." << std::endl;
+    
+    // 创建多个线程进行并发测试
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 5; ++i) {
+        threads.emplace_back(TestThread, i);
+    }
+    
+    // 等待所有线程完成
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    
+    std::cout << "多线程测试完成！" << std::endl;
+    return 0;
+}
+```
+
+### 多线程注意事项
+
+1. **独立初始化**：每个线程必须独立调用 `InitSyncManager()`
+2. **独立清理**：每个线程必须独立调用 `CleanupSyncManager()`
+3. **数据隔离**：不同线程的响应数据完全独立，不会相互影响
+4. **内存管理**：每个线程必须独立调用 `CleanupSyncResponse()` 清理响应数据
+5. **错误处理**：每个线程需要独立的错误处理逻辑

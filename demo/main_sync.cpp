@@ -1,118 +1,127 @@
-#include "ThsFactorSdk.h"
 #include "ThsFactorSdkSync.h"
-#include "rapidjson/document.h"
-#include "rapidjson/rapidjson.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <cstring>
 
-// æ¨é€å›è°ƒå‡½æ•°
+// ÍÆËÍ»Øµ÷º¯Êı
 void OnPushData(const char* push, int len) {
     if (!push || len <= 0) return;
-    
-    rapidjson::Document dom;
-    if (dom.Parse(push, len).HasParseError()) {
-        std::cout << "æ¨é€å›è°ƒJSONè§£æå¤±è´¥" << std::endl;
-        return;
-    }
-    const char* type = dom.HasMember("type") && dom["type"].IsString() ? dom["type"].GetString() : "";
-    const char* data = dom.HasMember("data") && dom["data"].IsString() ? dom["data"].GetString() : "";
-    std::cout << "æ”¶åˆ°æ¨é€ typeï¼š" << type << "  data:" << data << std::endl;
+    std::cout << "ÊÕµ½ÍÆËÍÊı¾İ£¬³¤¶È: " << len << std::endl;
+    std::cout << "ÍÆËÍÄÚÈİ: " << push << std::endl;
 }
 
-// è¾…åŠ©å‡½æ•°ï¼šæ‰“å°åŒæ­¥å“åº”ç»“æœ
+// ¸¨Öúº¯Êı£º´òÓ¡Í¬²½ÏìÓ¦½á¹û
 void PrintSyncResponse(const SyncResponse& response, const std::string& operation) {
-    std::cout << "=== " << operation << " ç»“æœ ===" << std::endl;
-    std::cout << "è¿”å›ç : " << response.code << std::endl;
-    std::cout << "æ¶ˆæ¯: " << response.message << std::endl;
-    std::cout << "æ•°æ®: " << response.data << std::endl;
-    std::cout << "================================" << std::endl;
+    std::cout << "=== " << operation << "½á¹û ===" << std::endl;
+    std::cout << "·µ»ØÂë: " << response.code << std::endl;
+    std::cout << "´íÎóĞÅÏ¢: " << (response.message ? response.message : "ÎŞ") << std::endl;
+    
+    if (response.data && strlen(response.data) > 0) {
+        std::cout << "ÏìÓ¦Êı¾İ³¤¶È: " << strlen(response.data) << std::endl;
+        std::cout << "ÏìÓ¦Êı¾İ: " << response.data << std::endl;
+    } else {
+        std::cout << "ÏìÓ¦Êı¾İ: ÎŞ" << std::endl;
+    }
+    std::cout << "==================" << std::endl;
 }
 
-// ä¸»ç¨‹åºå…¥å£
+// Ö÷³ÌĞòÈë¿Ú
 int main(int argc, char* argv[])
 {
-    // åˆå§‹åŒ–åŒæ­¥ç®¡ç†å™¨ï¼Œæ³¨å†Œæ¨é€å›è°ƒ
+    // ³õÊ¼»¯Í¬²½¹ÜÀíÆ÷£¬×¢²áÍÆËÍ»Øµ÷
     int ret = InitSyncManager(OnPushData);
     if (ret != 0) {
-        std::cout << "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–å¤±è´¥ï¼" << std::endl;
+        std::cout << "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯Ê§°Ü£¡" << std::endl;
         return -1;
     }
-    std::cout << "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–æˆåŠŸï¼Œæ¨é€å›è°ƒå·²æ³¨å†Œ" << std::endl;
+    std::cout << "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯³É¹¦£¬ÍÆËÍ»Øµ÷ÒÑ×¢²á" << std::endl;
 
-    // å‘èµ·åŒæ­¥ç™»å½•è¯·æ±‚
+    // ·¢ÆğÍ¬²½µÇÂ¼ÇëÇó
     LoginParam param;
     param.ip = "121.52.252.12";
     param.port = 9999;
-    param.account = "xxx";
-    param.password = "xxx";
+    param.account = "test_account";
+    param.password = "test_password";
     
-    std::cout << "å¼€å§‹åŒæ­¥ç™»å½•..." << std::endl;
+    std::cout << "¿ªÊ¼Í¬²½µÇÂ¼..." << std::endl;
     auto start_time = std::chrono::steady_clock::now();
-    SyncResponse login_response = LoginSync(&param, 10000); // 10ç§’è¶…æ—¶
+    SyncResponse login_response = LoginSync(&param, 5000); // 5Ãë³¬Ê±
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
-    PrintSyncResponse(login_response, "ç™»å½•");
-    std::cout << "ç™»å½•è€—æ—¶: " << duration.count() << "ms" << std::endl;
+    PrintSyncResponse(login_response, "µÇÂ¼");
+    std::cout << "µÇÂ¼ºÄÊ±: " << duration.count() << "ms" << std::endl;
 
     if (login_response.code != 0) {
-        std::cout << "ç™»å½•å¤±è´¥ï¼Œç¨‹åºé€€å‡º" << std::endl;
+        std::cout << "µÇÂ¼Ê§°Ü£¬³ÌĞòÍË³ö" << std::endl;
+        CleanupSyncResponse(&login_response);
         CleanupSyncManager();
         return -1;
     }
+    
+    // ÇåÀíµÇÂ¼ÏìÓ¦Êı¾İ
+    CleanupSyncResponse(&login_response);
 
-    // ç­‰å¾…ä¸€æ®µæ—¶é—´ç¡®ä¿ç™»å½•å®Œæˆ
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    // å‘èµ·åŒæ­¥æŸ¥è¯¢è¯·æ±‚
-    std::cout << "å¼€å§‹åŒæ­¥æŸ¥è¯¢..." << std::endl;
+    // ·¢ÆğÍ¬²½²éÑ¯ÇëÇó
+    std::cout << "¿ªÊ¼Í¬²½²éÑ¯..." << std::endl;
     start_time = std::chrono::steady_clock::now();
-    SyncResponse query_response = QuerySync("hxfnews", "20240101000000", "20240131235959", 15000); // 15ç§’è¶…æ—¶
+    SyncResponse query_response = QuerySync("test_type", "20240101000000", "20240131235959", 10000); // 10Ãë³¬Ê±
     end_time = std::chrono::steady_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
-    PrintSyncResponse(query_response, "æŸ¥è¯¢");
-    std::cout << "æŸ¥è¯¢è€—æ—¶: " << duration.count() << "ms" << std::endl;
+    PrintSyncResponse(query_response, "²éÑ¯");
+    std::cout << "²éÑ¯ºÄÊ±: " << duration.count() << "ms" << std::endl;
+    
+    // ÇåÀí²éÑ¯ÏìÓ¦Êı¾İ
+    CleanupSyncResponse(&query_response);
 
-    // å‘èµ·åŒæ­¥è®¢é˜…è¯·æ±‚
-    std::cout << "å¼€å§‹åŒæ­¥è®¢é˜…..." << std::endl;
+    // ·¢ÆğÍ¬²½¶©ÔÄÇëÇó
+    std::cout << "¿ªÊ¼Í¬²½¶©ÔÄ..." << std::endl;
     start_time = std::chrono::steady_clock::now();
-    SyncResponse subscribe_response = SubscribeSync("hxfnews", 10000); // 10ç§’è¶…æ—¶
+    SyncResponse subscribe_response = SubscribeSync("test_type", 5000); // 5Ãë³¬Ê±
     end_time = std::chrono::steady_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
-    PrintSyncResponse(subscribe_response, "è®¢é˜…");
-    std::cout << "è®¢é˜…è€—æ—¶: " << duration.count() << "ms" << std::endl;
+    PrintSyncResponse(subscribe_response, "¶©ÔÄ");
+    std::cout << "¶©ÔÄºÄÊ±: " << duration.count() << "ms" << std::endl;
+    
+    // ÇåÀí¶©ÔÄÏìÓ¦Êı¾İ
+    CleanupSyncResponse(&subscribe_response);
 
-    // ç­‰å¾…ä¸€æ®µæ—¶é—´
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    // µÈ´ıÒ»¶ÎÊ±¼ä½ÓÊÕÍÆËÍÊı¾İ
+    std::cout << "µÈ´ıÍÆËÍÊı¾İ..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(3));
 
-    // å‘èµ·åŒæ­¥å–æ¶ˆè®¢é˜…è¯·æ±‚
-    std::cout << "å¼€å§‹åŒæ­¥å–æ¶ˆè®¢é˜…..." << std::endl;
+    // ·¢ÆğÍ¬²½È¡Ïû¶©ÔÄÇëÇó
+    std::cout << "¿ªÊ¼Í¬²½È¡Ïû¶©ÔÄ..." << std::endl;
     start_time = std::chrono::steady_clock::now();
-    SyncResponse unsubscribe_response = UnSubscribeSync("hxfnews", 10000); // 10ç§’è¶…æ—¶
+    SyncResponse unsubscribe_response = UnSubscribeSync("test_type", 5000); // 5Ãë³¬Ê±
     end_time = std::chrono::steady_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
-    PrintSyncResponse(unsubscribe_response, "å–æ¶ˆè®¢é˜…");
-    std::cout << "å–æ¶ˆè®¢é˜…è€—æ—¶: " << duration.count() << "ms" << std::endl;
+    PrintSyncResponse(unsubscribe_response, "È¡Ïû¶©ÔÄ");
+    std::cout << "È¡Ïû¶©ÔÄºÄÊ±: " << duration.count() << "ms" << std::endl;
+    
+    // ÇåÀíÈ¡Ïû¶©ÔÄÏìÓ¦Êı¾İ
+    CleanupSyncResponse(&unsubscribe_response);
 
-    // å‘èµ·åŒæ­¥ç™»å‡ºè¯·æ±‚
-    std::cout << "å¼€å§‹åŒæ­¥ç™»å‡º..." << std::endl;
+    // ·¢ÆğÍ¬²½µÇ³öÇëÇó
+    std::cout << "¿ªÊ¼Í¬²½µÇ³ö..." << std::endl;
     start_time = std::chrono::steady_clock::now();
-    SyncResponse logout_response = LogoutSync(10000); // 10ç§’è¶…æ—¶
+    SyncResponse logout_response = LogoutSync(5000); // 5Ãë³¬Ê±
     end_time = std::chrono::steady_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
-    PrintSyncResponse(logout_response, "ç™»å‡º");
-    std::cout << "ç™»å‡ºè€—æ—¶: " << duration.count() << "ms" << std::endl;
+    PrintSyncResponse(logout_response, "µÇ³ö");
+    std::cout << "µÇ³öºÄÊ±: " << duration.count() << "ms" << std::endl;
+    
+    // ÇåÀíµÇ³öÏìÓ¦Êı¾İ
+    CleanupSyncResponse(&logout_response);
 
-    // æ¸…ç†åŒæ­¥ç®¡ç†å™¨
+    // ÇåÀíÍ¬²½¹ÜÀíÆ÷
     CleanupSyncManager();
-    std::cout << "ç¨‹åºæ‰§è¡Œå®Œæˆ" << std::endl;
+    std::cout << "³ÌĞòÖ´ĞĞÍê³É" << std::endl;
 
     return 0;
 }

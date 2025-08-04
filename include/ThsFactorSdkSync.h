@@ -12,68 +12,75 @@
 #define COSMOS_THSFACTOR_SDK_EXPORT __attribute__((visibility("default")))
 #endif
 
-// åŒæ­¥å“åº”ç»“æœç»“æ„ä½“
+// Í¬²½ÏìÓ¦½á¹û½á¹¹Ìå
 #pragma pack(push, 1)
 typedef struct {
-    int code;              // è¿”å›ç ï¼Œ0è¡¨ç¤ºæˆåŠŸ
-    const char* message;   // é”™è¯¯ä¿¡æ¯
-    const char* data;      // å“åº”æ•°æ®
+    int code;              // ·µ»ØÂë£¬0±íÊ¾³É¹¦
+    const char* message;   // ´íÎóĞÅÏ¢
+    const char* data;      // ÏìÓ¦Êı¾İ
+    void* data_owner;      // Êı¾İËùÓĞÕß£¬ÓÃÓÚÄÚ´æ¹ÜÀí
 } SyncResponse;
 #pragma pack(pop)
 
-// ========== åŒæ­¥æ¥å£å®šä¹‰ ==========
+// ========== Í¬²½½Ó¿Ú¶¨Òå ==========
 extern "C" {
     /// <summary>
-    /// åˆå§‹åŒ–åŒæ­¥æ¥å£ç®¡ç†å™¨
+    /// ³õÊ¼»¯Í¬²½½Ó¿Ú¹ÜÀíÆ÷
     /// </summary>
-    /// <param name="pushCallback">æ¨é€å›è°ƒå‡½æ•°ï¼Œå¯é€‰å‚æ•°</param>
-    /// <returns>0ï¼šæˆåŠŸ</returns>
+    /// <param name="pushCallback">ÍÆËÍ»Øµ÷º¯Êı£¬¿ÉÑ¡²ÎÊı</param>
+    /// <returns>0£º³É¹¦</returns>
     COSMOS_THSFACTOR_SDK_EXPORT int InitSyncManager(OnPushCb pushCallback = nullptr);
 
     /// <summary>
-    /// æ¸…ç†åŒæ­¥æ¥å£ç®¡ç†å™¨
+    /// ÇåÀíÍ¬²½½Ó¿Ú¹ÜÀíÆ÷
     /// </summary>
-    /// <returns>0ï¼šæˆåŠŸ</returns>
+    /// <returns>0£º³É¹¦</returns>
     COSMOS_THSFACTOR_SDK_EXPORT int CleanupSyncManager();
 
     /// <summary>
-    /// åŒæ­¥ç™»å½•æ¥å£
+    /// Í¬²½µÇÂ¼½Ó¿Ú
     /// </summary>
-    /// <param name="param">ç™»å½•å‚æ•°ç»“æ„ä½“æŒ‡é’ˆ</param>
-    /// <param name="timeout_ms">è¶…æ—¶æ—¶é—´ï¼ˆæ¯«ç§’ï¼‰ï¼Œé»˜è®¤5000ms</param>
-    /// <returns>åŒæ­¥å“åº”ç»“æœ</returns>
+    /// <param name="param">µÇÂ¼²ÎÊı½á¹¹ÌåÖ¸Õë</param>
+    /// <param name="timeout_ms">³¬Ê±Ê±¼ä£¨ºÁÃë£©£¬Ä¬ÈÏ5000ms</param>
+    /// <returns>Í¬²½ÏìÓ¦½á¹û</returns>
     COSMOS_THSFACTOR_SDK_EXPORT SyncResponse LoginSync(const LoginParam* param, int timeout_ms = 5000);
 
     /// <summary>
-    /// åŒæ­¥ç™»å‡ºæ¥å£
+    /// Í¬²½µÇ³ö½Ó¿Ú
     /// </summary>
-    /// <param name="timeout_ms">è¶…æ—¶æ—¶é—´ï¼ˆæ¯«ç§’ï¼‰ï¼Œé»˜è®¤5000ms</param>
-    /// <returns>åŒæ­¥å“åº”ç»“æœ</returns>
+    /// <param name="timeout_ms">³¬Ê±Ê±¼ä£¨ºÁÃë£©£¬Ä¬ÈÏ5000ms</param>
+    /// <returns>Í¬²½ÏìÓ¦½á¹û</returns>
     COSMOS_THSFACTOR_SDK_EXPORT SyncResponse LogoutSync(int timeout_ms = 5000);
 
     /// <summary>
-    /// åŒæ­¥æŸ¥è¯¢æ¥å£
+    /// Í¬²½²éÑ¯½Ó¿Ú
     /// </summary>
-    /// <param name="type">è¯·æ±‚ç±»å‹</param>
-    /// <param name="begin">å¼€å§‹æ—¶é—´ï¼Œæ ¼å¼ä¸ºYYYYMMDDHHmmss</param>
-    /// <param name="end">ç»“æŸæ—¶é—´ï¼Œæ ¼å¼ä¸ºYYYYMMDDHHmmss</param>
-    /// <param name="timeout_ms">è¶…æ—¶æ—¶é—´ï¼ˆæ¯«ç§’ï¼‰ï¼Œé»˜è®¤10000ms</param>
-    /// <returns>åŒæ­¥å“åº”ç»“æœ</returns>
+    /// <param name="type">ÇëÇóÀàĞÍ</param>
+    /// <param name="begin">¿ªÊ¼Ê±¼ä£¬¸ñÊ½ÎªYYYYMMDDHHmmss</param>
+    /// <param name="end">½áÊøÊ±¼ä£¬¸ñÊ½ÎªYYYYMMDDHHmmss</param>
+    /// <param name="timeout_ms">³¬Ê±Ê±¼ä£¨ºÁÃë£©£¬Ä¬ÈÏ10000ms</param>
+    /// <returns>Í¬²½ÏìÓ¦½á¹û</returns>
     COSMOS_THSFACTOR_SDK_EXPORT SyncResponse QuerySync(const char* type, const char* begin, const char* end, int timeout_ms = 10000);
 
     /// <summary>
-    /// åŒæ­¥è®¢é˜…æ¥å£
+    /// Í¬²½¶©ÔÄ½Ó¿Ú
     /// </summary>
-    /// <param name="type">è¯·æ±‚ç±»å‹</param>
-    /// <param name="timeout_ms">è¶…æ—¶æ—¶é—´ï¼ˆæ¯«ç§’ï¼‰ï¼Œé»˜è®¤5000ms</param>
-    /// <returns>åŒæ­¥å“åº”ç»“æœ</returns>
+    /// <param name="type">ÇëÇóÀàĞÍ</param>
+    /// <param name="timeout_ms">³¬Ê±Ê±¼ä£¨ºÁÃë£©£¬Ä¬ÈÏ5000ms</param>
+    /// <returns>Í¬²½ÏìÓ¦½á¹û</returns>
     COSMOS_THSFACTOR_SDK_EXPORT SyncResponse SubscribeSync(const char* type, int timeout_ms = 5000);
 
     /// <summary>
-    /// åŒæ­¥å–æ¶ˆè®¢é˜…æ¥å£
+    /// Í¬²½È¡Ïû¶©ÔÄ½Ó¿Ú
     /// </summary>
-    /// <param name="type">è¯·æ±‚ç±»å‹</param>
-    /// <param name="timeout_ms">è¶…æ—¶æ—¶é—´ï¼ˆæ¯«ç§’ï¼‰ï¼Œé»˜è®¤5000ms</param>
-    /// <returns>åŒæ­¥å“åº”ç»“æœ</returns>
-    COSMOS_THSFACTOR_SDK_EXPORT SyncResponse UnSubscribeSync(const char* type, int timeout_ms = 5000); 
+    /// <param name="type">ÇëÇóÀàĞÍ</param>
+    /// <param name="timeout_ms">³¬Ê±Ê±¼ä£¨ºÁÃë£©£¬Ä¬ÈÏ5000ms</param>
+    /// <returns>Í¬²½ÏìÓ¦½á¹û</returns>
+    COSMOS_THSFACTOR_SDK_EXPORT SyncResponse UnSubscribeSync(const char* type, int timeout_ms = 5000);
+
+    /// <summary>
+    /// ÇåÀíÍ¬²½ÏìÓ¦Êı¾İ
+    /// </summary>
+    /// <param name="response">ÒªÇåÀíµÄÏìÓ¦¶ÔÏó</param>
+    COSMOS_THSFACTOR_SDK_EXPORT void CleanupSyncResponse(SyncResponse* response); 
 }

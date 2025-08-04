@@ -135,10 +135,25 @@ public:
             timeout_response.code = -1;
             timeout_response.message = "请求超时";
             timeout_response.data = "";
+            timeout_response.data_owner = nullptr;
             return timeout_response;
         }
 
-        return request->response;
+        // 创建完整的副本，避免野指针
+        SyncResponse result = request->response;
+        
+        // 确保data指针指向有效的内存
+        if (result.data && strlen(result.data) > 0) {
+            // 将数据复制到独立的存储中
+            char* data_copy = new char[request->response_data.length() + 1];
+            strcpy(data_copy, request->response_data.c_str());
+            result.data = data_copy;
+            result.data_owner = data_copy;  // 设置数据所有者
+        } else {
+            result.data_owner = nullptr;
+        }
+        
+        return result;
     }
 
     void HandleResponse(const std::string& uuid, const SyncResponse& response) {
@@ -249,14 +264,31 @@ void SyncManager::OnLoginCallback(const char* result, int len) {
     std::string uuid = ExtractUuidFromJson(response_str);
     
     if (!uuid.empty()) {
-        SyncResponse response;
         // 获取对应的request对象
         auto& instance = GetInstance();
-        std::lock_guard<std::mutex> lock(instance.requests_mutex);
-        auto it = instance.pending_requests.find(uuid);
-        if (it != instance.pending_requests.end()) {
-            ParseJsonResponse(response_str, response, it->second.get());
-            instance.HandleResponse(uuid, response);
+        std::shared_ptr<PendingRequest> request;
+        
+        {
+            std::lock_guard<std::mutex> lock(instance.requests_mutex);
+            auto it = instance.pending_requests.find(uuid);
+            if (it != instance.pending_requests.end()) {
+                request = it->second;
+            }
+        }
+        
+        if (request) {
+            // 直接操作request，避免再次锁定mutex
+            std::lock_guard<std::mutex> req_lock(request->mutex);
+            
+            // 先存储数据到request中
+            request->response_data = response_str;
+            request->error_message = "";
+            
+            // 然后解析响应
+            ParseJsonResponse(response_str, request->response, request.get());
+            
+            request->completed = true;
+            request->cv.notify_one();
         }
     }
 }
@@ -268,14 +300,31 @@ void SyncManager::OnQueryCallback(const char* result, int len) {
     std::string uuid = ExtractUuidFromJson(response_str);
     
     if (!uuid.empty()) {
-        SyncResponse response;
         // 获取对应的request对象
         auto& instance = GetInstance();
-        std::lock_guard<std::mutex> lock(instance.requests_mutex);
-        auto it = instance.pending_requests.find(uuid);
-        if (it != instance.pending_requests.end()) {
-            ParseJsonResponse(response_str, response, it->second.get());
-            instance.HandleResponse(uuid, response);
+        std::shared_ptr<PendingRequest> request;
+        
+        {
+            std::lock_guard<std::mutex> lock(instance.requests_mutex);
+            auto it = instance.pending_requests.find(uuid);
+            if (it != instance.pending_requests.end()) {
+                request = it->second;
+            }
+        }
+        
+        if (request) {
+            // 直接操作request，避免再次锁定mutex
+            std::lock_guard<std::mutex> req_lock(request->mutex);
+            
+            // 先存储数据到request中
+            request->response_data = response_str;
+            request->error_message = "";
+            
+            // 然后解析响应
+            ParseJsonResponse(response_str, request->response, request.get());
+            
+            request->completed = true;
+            request->cv.notify_one();
         }
     }
 }
@@ -287,14 +336,31 @@ void SyncManager::OnSubscribeCallback(const char* result, int len) {
     std::string uuid = ExtractUuidFromJson(response_str);
     
     if (!uuid.empty()) {
-        SyncResponse response;
         // 获取对应的request对象
         auto& instance = GetInstance();
-        std::lock_guard<std::mutex> lock(instance.requests_mutex);
-        auto it = instance.pending_requests.find(uuid);
-        if (it != instance.pending_requests.end()) {
-            ParseJsonResponse(response_str, response, it->second.get());
-            instance.HandleResponse(uuid, response);
+        std::shared_ptr<PendingRequest> request;
+        
+        {
+            std::lock_guard<std::mutex> lock(instance.requests_mutex);
+            auto it = instance.pending_requests.find(uuid);
+            if (it != instance.pending_requests.end()) {
+                request = it->second;
+            }
+        }
+        
+        if (request) {
+            // 直接操作request，避免再次锁定mutex
+            std::lock_guard<std::mutex> req_lock(request->mutex);
+            
+            // 先存储数据到request中
+            request->response_data = response_str;
+            request->error_message = "";
+            
+            // 然后解析响应
+            ParseJsonResponse(response_str, request->response, request.get());
+            
+            request->completed = true;
+            request->cv.notify_one();
         }
     }
 }
@@ -306,14 +372,31 @@ void SyncManager::OnUnSubscribeCallback(const char* result, int len) {
     std::string uuid = ExtractUuidFromJson(response_str);
     
     if (!uuid.empty()) {
-        SyncResponse response;
         // 获取对应的request对象
         auto& instance = GetInstance();
-        std::lock_guard<std::mutex> lock(instance.requests_mutex);
-        auto it = instance.pending_requests.find(uuid);
-        if (it != instance.pending_requests.end()) {
-            ParseJsonResponse(response_str, response, it->second.get());
-            instance.HandleResponse(uuid, response);
+        std::shared_ptr<PendingRequest> request;
+        
+        {
+            std::lock_guard<std::mutex> lock(instance.requests_mutex);
+            auto it = instance.pending_requests.find(uuid);
+            if (it != instance.pending_requests.end()) {
+                request = it->second;
+            }
+        }
+        
+        if (request) {
+            // 直接操作request，避免再次锁定mutex
+            std::lock_guard<std::mutex> req_lock(request->mutex);
+            
+            // 先存储数据到request中
+            request->response_data = response_str;
+            request->error_message = "";
+            
+            // 然后解析响应
+            ParseJsonResponse(response_str, request->response, request.get());
+            
+            request->completed = true;
+            request->cv.notify_one();
         }
     }
 }
@@ -496,6 +579,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
         response.code = -1;
         response.message = "取消订阅类型为空";
         response.data = "";
+        response.data_owner = nullptr;
         return response;
     }
     
@@ -504,6 +588,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
         response.code = -1;
         response.message = "同步管理器初始化失败";
         response.data = "";
+        response.data_owner = nullptr;
         return response;
     }
     
@@ -515,10 +600,19 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
         response.code = ret;
         response.message = "取消订阅请求发送失败";
         response.data = "";
+        response.data_owner = nullptr;
         return response;
     }
     
     return SyncManager::GetInstance().WaitForResponse(uuid, timeout_ms);
+}
+
+void CleanupSyncResponse(SyncResponse* response) {
+    if (response && response->data_owner) {
+        delete[] static_cast<char*>(response->data_owner);
+        response->data_owner = nullptr;
+        response->data = nullptr;
+    }
 }
 
 }
