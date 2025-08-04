@@ -1,0 +1,68 @@
+ cmake_minimum_required(VERSION 3.10)
+project(ThsFactorSdkSync)
+
+# 设置C++标准
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 设置输出目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# 包含目录
+include_directories(include)
+
+# 库目录
+link_directories(lib)
+
+# 查找ThsFactorSdk库
+find_library(THSFACTOR_SDK_LIB ThsFactorSdk PATHS lib NO_DEFAULT_PATH)
+
+# 编译同步接口库
+add_library(ThsFactorSdkSync SHARED
+    src/ThsFactorSdkSync.cpp
+)
+
+# 设置同步接口库的属性
+set_target_properties(ThsFactorSdkSync PROPERTIES
+    OUTPUT_NAME "ThsFactorSdkSync"
+    PREFIX ""
+)
+
+# 链接依赖库
+target_link_libraries(ThsFactorSdkSync
+    ${THSFACTOR_SDK_LIB}
+)
+
+# 编译同步接口示例程序
+add_executable(demo_sync
+    demo/main_sync.cpp
+)
+
+# 链接同步接口库
+target_link_libraries(demo_sync
+    ThsFactorSdkSync
+    ${THSFACTOR_SDK_LIB}
+)
+
+# Windows特定设置
+if(WIN32)
+    # 复制DLL到输出目录
+    add_custom_command(TARGET demo_sync POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:ThsFactorSdkSync>
+        $<TARGET_FILE_DIR:demo_sync>
+    )
+    
+    # 复制依赖DLL
+    file(GLOB DLL_FILES "dll/*.dll")
+    foreach(DLL_FILE ${DLL_FILES})
+        add_custom_command(TARGET demo_sync POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${DLL_FILE}
+            $<TARGET_FILE_DIR:demo_sync>
+        )
+    endforeach()
+endif()
+
