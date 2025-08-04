@@ -13,6 +13,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # 包含目录
 include_directories(include)
 
+# 定义导出宏
+add_definitions(-DCOSMOS_THSFACTOR_SDK_DLL_EXPORT)
+
 # 库目录
 link_directories(lib)
 

@@ -1,4 +1,5 @@
 #include "ThsFactorSdk.h"
+#include "ThsFactorSdkSync.h"
 #include <iostream>
 #include <thread>
 #include <vector>

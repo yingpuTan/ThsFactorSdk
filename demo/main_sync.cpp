@@ -1,4 +1,5 @@
 #include "ThsFactorSdk.h"
+#include "ThsFactorSdkSync.h"
 #include "rapidjson/document.h"
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/stringbuffer.h"

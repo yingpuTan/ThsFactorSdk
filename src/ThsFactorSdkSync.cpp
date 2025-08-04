@@ -1,4 +1,5 @@
 #include "ThsFactorSdk.h"
+#include "ThsFactorSdkSync.h"
 #include <map>
 #include <mutex>
 #include <condition_variable>
@@ -10,7 +11,7 @@
 #include <iomanip>
 #include <random>
 
-// åŒæ­¥ç®¡ç†å™¨ç±»
+// Í¬²½¹ÜÀíÆ÷Àà
 class SyncManager {
 private:
     struct PendingRequest {
@@ -20,7 +21,7 @@ private:
         bool completed;
         std::chrono::steady_clock::time_point timestamp;
         
-        // å­˜å‚¨å“åº”æ•°æ®çš„å­—ç¬¦ä¸²ï¼Œç¡®ä¿æ•°æ®ç”Ÿå‘½å‘¨æœŸ
+        // ´æ´¢ÏìÓ¦Êı¾İµÄ×Ö·û´®£¬È·±£Êı¾İÉúÃüÖÜÆÚ
         std::string response_data;
         std::string error_message;
         
@@ -32,7 +33,7 @@ private:
     std::atomic<bool> initialized{false};
     OnPushCb user_push_callback{nullptr};
     
-    // å¼‚æ­¥å›è°ƒå‡½æ•°
+    // Òì²½»Øµ÷º¯Êı
     static void OnLoginCallback(const char* result, int len);
     static void OnQueryCallback(const char* result, int len);
     static void OnSubscribeCallback(const char* result, int len);
@@ -40,7 +41,7 @@ private:
     static void OnPushCallback(const char* push, int len);
     static void OnSessionCallback(const char* session, int len);
 
-    // è¾…åŠ©å‡½æ•°
+    // ¸¨Öúº¯Êı
     static std::string ExtractUuidFromJson(const std::string& json_str);
     static bool ParseJsonResponse(const std::string& json_str, SyncResponse& response, PendingRequest* request = nullptr);
 
@@ -53,10 +54,10 @@ public:
     bool Initialize(OnPushCb pushCallback = nullptr) {
         if (initialized.load()) return true;
         
-        // ä¿å­˜ç”¨æˆ·æ¨é€å›è°ƒ
+        // ±£´æÓÃ»§ÍÆËÍ»Øµ÷
         user_push_callback = pushCallback;
         
-        // æ³¨å†Œå¼‚æ­¥å›è°ƒ
+        // ×¢²áÒì²½»Øµ÷
         int ret = RegisterCallback(
             OnLoginCallback,
             OnQueryCallback, 
@@ -69,7 +70,7 @@ public:
         if (ret == 0) {
             initialized.store(true);
             
-            // å¯åŠ¨å®šæœŸæ¸…ç†çº¿ç¨‹
+            // Æô¶¯¶¨ÆÚÇåÀíÏß³Ì
             std::thread([this]() {
                 while (initialized.load()) {
                     std::this_thread::sleep_for(std::chrono::seconds(10));
@@ -123,7 +124,7 @@ public:
                                           std::chrono::milliseconds(timeout_ms),
                                           [request] { return request->completed; });
 
-        // æ¸…ç†è¯·æ±‚
+        // ÇåÀíÇëÇó
         {
             std::lock_guard<std::mutex> lock(requests_mutex);
             pending_requests.erase(uuid);
@@ -132,7 +133,7 @@ public:
         if (!success) {
             SyncResponse timeout_response;
             timeout_response.code = -1;
-            timeout_response.message = "è¯·æ±‚è¶…æ—¶";
+            timeout_response.message = "ÇëÇó³¬Ê±";
             timeout_response.data = "";
             return timeout_response;
         }
@@ -162,7 +163,7 @@ public:
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                 now - request->timestamp).count();
             
-            if (duration > 30000) { // 30ç§’è¶…æ—¶æ¸…ç†
+            if (duration > 30000) { // 30Ãë³¬Ê±ÇåÀí
                 it = pending_requests.erase(it);
             } else {
                 ++it;
@@ -171,23 +172,23 @@ public:
     }
 };
 
-// ä»JSONå­—ç¬¦ä¸²ä¸­æå–UUID
+// ´ÓJSON×Ö·û´®ÖĞÌáÈ¡UUID
 std::string SyncManager::ExtractUuidFromJson(const std::string& json_str) {
-    // ç®€å•çš„UUIDæå–é€»è¾‘
-    // æŸ¥æ‰¾ "id": "uuid" æ¨¡å¼
+    // ¼òµ¥µÄUUIDÌáÈ¡Âß¼­
+    // ²éÕÒ "id": "uuid" Ä£Ê½
     size_t pos = json_str.find("\"id\":\"");
     if (pos != std::string::npos) {
-        pos += 6; // è·³è¿‡ "id":"
+        pos += 6; // Ìø¹ı "id":"
         size_t end = json_str.find("\"", pos);
         if (end != std::string::npos) {
             return json_str.substr(pos, end - pos);
         }
     }
     
-    // æŸ¥æ‰¾ "uuid": "uuid" æ¨¡å¼
+    // ²éÕÒ "uuid": "uuid" Ä£Ê½
     pos = json_str.find("\"uuid\":\"");
     if (pos != std::string::npos) {
-        pos += 8; // è·³è¿‡ "uuid":"
+        pos += 8; // Ìø¹ı "uuid":"
         size_t end = json_str.find("\"", pos);
         if (end != std::string::npos) {
             return json_str.substr(pos, end - pos);
@@ -197,18 +198,18 @@ std::string SyncManager::ExtractUuidFromJson(const std::string& json_str) {
     return "";
 }
 
-// è§£æJSONå“åº”
+// ½âÎöJSONÏìÓ¦
 bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& response, PendingRequest* request) {
-    // ç®€å•çš„JSONè§£æé€»è¾‘
-    // æ£€æŸ¥æ˜¯å¦åŒ…å«é”™è¯¯ä¿¡æ¯
+    // ¼òµ¥µÄJSON½âÎöÂß¼­
+    // ¼ì²éÊÇ·ñ°üº¬´íÎóĞÅÏ¢
     if (json_str.find("\"error\"") != std::string::npos) {
         response.code = -1;
-        response.message = "æœåŠ¡å™¨è¿”å›é”™è¯¯";
+        response.message = "·şÎñÆ÷·µ»Ø´íÎó";
         
-        // å°è¯•æå–é”™è¯¯ä¿¡æ¯
+        // ³¢ÊÔÌáÈ¡´íÎóĞÅÏ¢
         size_t pos = json_str.find("\"message\":\"");
         if (pos != std::string::npos) {
-            pos += 11; // è·³è¿‡ "message":"
+            pos += 11; // Ìø¹ı "message":"
             size_t end = json_str.find("\"", pos);
             if (end != std::string::npos) {
                 std::string error_msg = json_str.substr(pos, end - pos);
@@ -216,21 +217,21 @@ bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& r
                     request->error_message = error_msg;
                     response.message = request->error_message.c_str();
                 } else {
-                    response.message = "æœåŠ¡å™¨è¿”å›é”™è¯¯";
+                    response.message = "·şÎñÆ÷·µ»Ø´íÎó";
                 }
             } else {
-                response.message = "æœåŠ¡å™¨è¿”å›é”™è¯¯";
+                response.message = "·şÎñÆ÷·µ»Ø´íÎó";
             }
         }
     } else if (json_str.find("\"result\"") != std::string::npos) {
         response.code = 0;
-        response.message = "æ“ä½œæˆåŠŸ";
+        response.message = "²Ù×÷³É¹¦";
     } else {
         response.code = 0;
-        response.message = "æ“ä½œå®Œæˆ";
+        response.message = "²Ù×÷Íê³É";
     }
     
-    // å­˜å‚¨å“åº”æ•°æ®åˆ°requestä¸­ï¼Œç¡®ä¿æ•°æ®ç”Ÿå‘½å‘¨æœŸ
+    // ´æ´¢ÏìÓ¦Êı¾İµ½requestÖĞ£¬È·±£Êı¾İÉúÃüÖÜÆÚ
     if (request) {
         request->response_data = json_str;
         response.data = request->response_data.c_str();
@@ -240,7 +241,7 @@ bool SyncManager::ParseJsonResponse(const std::string& json_str, SyncResponse& r
     return true;
 }
 
-// å¼‚æ­¥å›è°ƒå®ç°
+// Òì²½»Øµ÷ÊµÏÖ
 void SyncManager::OnLoginCallback(const char* result, int len) {
     if (!result || len <= 0) return;
     
@@ -249,7 +250,7 @@ void SyncManager::OnLoginCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        // è·å–å¯¹åº”çš„requestå¯¹è±¡
+        // »ñÈ¡¶ÔÓ¦µÄrequest¶ÔÏó
         auto& instance = GetInstance();
         std::lock_guard<std::mutex> lock(instance.requests_mutex);
         auto it = instance.pending_requests.find(uuid);
@@ -268,7 +269,7 @@ void SyncManager::OnQueryCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        // è·å–å¯¹åº”çš„requestå¯¹è±¡
+        // »ñÈ¡¶ÔÓ¦µÄrequest¶ÔÏó
         auto& instance = GetInstance();
         std::lock_guard<std::mutex> lock(instance.requests_mutex);
         auto it = instance.pending_requests.find(uuid);
@@ -287,7 +288,7 @@ void SyncManager::OnSubscribeCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        // è·å–å¯¹åº”çš„requestå¯¹è±¡
+        // »ñÈ¡¶ÔÓ¦µÄrequest¶ÔÏó
         auto& instance = GetInstance();
         std::lock_guard<std::mutex> lock(instance.requests_mutex);
         auto it = instance.pending_requests.find(uuid);
@@ -306,7 +307,7 @@ void SyncManager::OnUnSubscribeCallback(const char* result, int len) {
     
     if (!uuid.empty()) {
         SyncResponse response;
-        // è·å–å¯¹åº”çš„requestå¯¹è±¡
+        // »ñÈ¡¶ÔÓ¦µÄrequest¶ÔÏó
         auto& instance = GetInstance();
         std::lock_guard<std::mutex> lock(instance.requests_mutex);
         auto it = instance.pending_requests.find(uuid);
@@ -318,22 +319,22 @@ void SyncManager::OnUnSubscribeCallback(const char* result, int len) {
 }
 
 void SyncManager::OnPushCallback(const char* push, int len) {
-    // è°ƒç”¨ç”¨æˆ·çš„æ¨é€å›è°ƒå‡½æ•°
+    // µ÷ÓÃÓÃ»§µÄÍÆËÍ»Øµ÷º¯Êı
     if (GetInstance().user_push_callback && push && len > 0) {
         GetInstance().user_push_callback(push, len);
     }
 }
 
 void SyncManager::OnSessionCallback(const char* session, int len) {
-    // SessionçŠ¶æ€å›è°ƒï¼Œé€šå¸¸ä¸éœ€è¦åŒæ­¥å¤„ç†
-    // å¯ä»¥åœ¨è¿™é‡Œæ·»åŠ sessionçŠ¶æ€å˜åŒ–çš„å¤„ç†é€»è¾‘
+    // Session×´Ì¬»Øµ÷£¬Í¨³£²»ĞèÒªÍ¬²½´¦Àí
+    // ¿ÉÒÔÔÚÕâÀïÌí¼Ósession×´Ì¬±ä»¯µÄ´¦ÀíÂß¼­
     if (session && len > 0) {
         std::string session_data(session, len);
-        // TODO: æ·»åŠ sessionçŠ¶æ€å¤„ç†é€»è¾‘
+        // TODO: Ìí¼Ósession×´Ì¬´¦ÀíÂß¼­
     }
 }
 
-// åŒæ­¥æ¥å£å®ç°
+// Í¬²½½Ó¿ÚÊµÏÖ
 extern "C" {
 
 int InitSyncManager(OnPushCb pushCallback) {
@@ -349,7 +350,7 @@ SyncResponse LoginSync(const LoginParam* param, int timeout_ms) {
     if (!param) {
         SyncResponse response;
         response.code = -1;
-        response.message = "ç™»å½•å‚æ•°ä¸ºç©º";
+        response.message = "µÇÂ¼²ÎÊıÎª¿Õ";
         response.data = "";
         return response;
     }
@@ -357,7 +358,7 @@ SyncResponse LoginSync(const LoginParam* param, int timeout_ms) {
     if (!SyncManager::GetInstance().Initialize()) {
         SyncResponse response;
         response.code = -1;
-        response.message = "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–å¤±è´¥";
+        response.message = "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯Ê§°Ü";
         response.data = "";
         return response;
     }
@@ -368,7 +369,7 @@ SyncResponse LoginSync(const LoginParam* param, int timeout_ms) {
     if (ret != 0) {
         SyncResponse response;
         response.code = ret;
-        response.message = "ç™»å½•è¯·æ±‚å‘é€å¤±è´¥";
+        response.message = "µÇÂ¼ÇëÇó·¢ËÍÊ§°Ü";
         response.data = "";
         return response;
     }
@@ -380,7 +381,7 @@ SyncResponse LogoutSync(int timeout_ms) {
     if (!SyncManager::GetInstance().Initialize()) {
         SyncResponse response;
         response.code = -1;
-        response.message = "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–å¤±è´¥";
+        response.message = "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯Ê§°Ü";
         response.data = "";
         return response;
     }
@@ -391,7 +392,7 @@ SyncResponse LogoutSync(int timeout_ms) {
     if (ret != 0) {
         SyncResponse response;
         response.code = ret;
-        response.message = "ç™»å‡ºè¯·æ±‚å‘é€å¤±è´¥";
+        response.message = "µÇ³öÇëÇó·¢ËÍÊ§°Ü";
         response.data = "";
         return response;
     }
@@ -403,7 +404,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
     if (!type) {
         SyncResponse response;
         response.code = -1;
-        response.message = "æŸ¥è¯¢ç±»å‹ä¸ºç©º";
+        response.message = "²éÑ¯ÀàĞÍÎª¿Õ";
         response.data = "";
         return response;
     }
@@ -411,27 +412,27 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
     if (!begin || !end) {
         SyncResponse response;
         response.code = -1;
-        response.message = "æ—¶é—´å‚æ•°ä¸ºç©º";
+        response.message = "Ê±¼ä²ÎÊıÎª¿Õ";
         response.data = "";
         return response;
     }
     
-    // éªŒè¯æ—¶é—´æ ¼å¼ (YYYYMMDDHHmmss)
+    // ÑéÖ¤Ê±¼ä¸ñÊ½ (YYYYMMDDHHmmss)
     std::string begin_str(begin);
     std::string end_str(end);
     if (begin_str.length() != 14 || end_str.length() != 14) {
         SyncResponse response;
         response.code = -1;
-        response.message = "æ—¶é—´æ ¼å¼é”™è¯¯ï¼Œåº”ä¸ºYYYYMMDDHHmmssæ ¼å¼";
+        response.message = "Ê±¼ä¸ñÊ½´íÎó£¬Ó¦ÎªYYYYMMDDHHmmss¸ñÊ½";
         response.data = "";
         return response;
     }
     
-    // éªŒè¯æ—¶é—´èŒƒå›´
+    // ÑéÖ¤Ê±¼ä·¶Î§
     if (begin_str >= end_str) {
         SyncResponse response;
         response.code = -1;
-        response.message = "å¼€å§‹æ—¶é—´å¿…é¡»æ—©äºç»“æŸæ—¶é—´";
+        response.message = "¿ªÊ¼Ê±¼ä±ØĞëÔçÓÚ½áÊøÊ±¼ä";
         response.data = "";
         return response;
     }
@@ -439,7 +440,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
     if (!SyncManager::GetInstance().Initialize()) {
         SyncResponse response;
         response.code = -1;
-        response.message = "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–å¤±è´¥";
+        response.message = "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯Ê§°Ü";
         response.data = "";
         return response;
     }
@@ -450,7 +451,7 @@ SyncResponse QuerySync(const char* type, const char* begin, const char* end, int
     if (ret != 0) {
         SyncResponse response;
         response.code = ret;
-        response.message = "æŸ¥è¯¢è¯·æ±‚å‘é€å¤±è´¥";
+        response.message = "²éÑ¯ÇëÇó·¢ËÍÊ§°Ü";
         response.data = "";
         return response;
     }
@@ -462,7 +463,7 @@ SyncResponse SubscribeSync(const char* type, int timeout_ms) {
     if (!type) {
         SyncResponse response;
         response.code = -1;
-        response.message = "è®¢é˜…ç±»å‹ä¸ºç©º";
+        response.message = "¶©ÔÄÀàĞÍÎª¿Õ";
         response.data = "";
         return response;
     }
@@ -470,7 +471,7 @@ SyncResponse SubscribeSync(const char* type, int timeout_ms) {
     if (!SyncManager::GetInstance().Initialize()) {
         SyncResponse response;
         response.code = -1;
-        response.message = "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–å¤±è´¥";
+        response.message = "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯Ê§°Ü";
         response.data = "";
         return response;
     }
@@ -481,7 +482,7 @@ SyncResponse SubscribeSync(const char* type, int timeout_ms) {
     if (ret != 0) {
         SyncResponse response;
         response.code = ret;
-        response.message = "è®¢é˜…è¯·æ±‚å‘é€å¤±è´¥";
+        response.message = "¶©ÔÄÇëÇó·¢ËÍÊ§°Ü";
         response.data = "";
         return response;
     }
@@ -493,7 +494,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
     if (!type) {
         SyncResponse response;
         response.code = -1;
-        response.message = "å–æ¶ˆè®¢é˜…ç±»å‹ä¸ºç©º";
+        response.message = "È¡Ïû¶©ÔÄÀàĞÍÎª¿Õ";
         response.data = "";
         return response;
     }
@@ -501,7 +502,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
     if (!SyncManager::GetInstance().Initialize()) {
         SyncResponse response;
         response.code = -1;
-        response.message = "åŒæ­¥ç®¡ç†å™¨åˆå§‹åŒ–å¤±è´¥";
+        response.message = "Í¬²½¹ÜÀíÆ÷³õÊ¼»¯Ê§°Ü";
         response.data = "";
         return response;
     }
@@ -512,7 +513,7 @@ SyncResponse UnSubscribeSync(const char* type, int timeout_ms) {
     if (ret != 0) {
         SyncResponse response;
         response.code = ret;
-        response.message = "å–æ¶ˆè®¢é˜…è¯·æ±‚å‘é€å¤±è´¥";
+        response.message = "È¡Ïû¶©ÔÄÇëÇó·¢ËÍÊ§°Ü";
         response.data = "";
         return response;
     }

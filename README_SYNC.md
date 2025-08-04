@@ -2,7 +2,7 @@
 
 ## 概述
 
-本同步接口是对原有异步回调接口的封装，提供了同步调用的方式，简化了使用流程。同步接口会阻塞调用线程直到收到响应或超时。所有接口定义都统一在 `ThsFactorSdk.h` 头文件中。
+本同步接口是对原有异步回调接口的封装，提供了同步调用的方式，简化了使用流程。同步接口会阻塞调用线程直到收到响应或超时。所有接口定义都在 `ThsFactorSdkSync.h` 头文件中。
 
 ## 主要特性
 
@@ -63,6 +63,7 @@ typedef struct {
 
 ```cpp
 #include "ThsFactorSdk.h"
+#include "ThsFactorSdkSync.h"
 #include <iostream>
 
 // 推送回调函数
