@@ -28,18 +28,22 @@ int UnSubscribe(const char* type, const char* uuid);
 ```cpp
 // 响应结构体
 typedef struct {
-    int code;              // 返回码
-    std::string message;   // 错误信息
-    std::string data;      // 响应数据
+    int code;              // 返回码，0表示成功
+    const char* message;   // 错误信息
+    const char* data;      // 响应数据
+    void* data_owner;      // 数据所有者，用于内存管理
 } SyncResponse;
+```
 
 // 同步接口
-int InitSyncManager();
+int InitSyncManager(OnPushCb pushCallback = nullptr);
 int CleanupSyncManager();
 SyncResponse LoginSync(const LoginParam* param, int timeout_ms = 5000);
-SyncResponse QuerySync(const char* type, int timeout_ms = 10000);
+SyncResponse QuerySync(const char* type, const char* begin, const char* end, int timeout_ms = 10000);
 SyncResponse SubscribeSync(const char* type, int timeout_ms = 5000);
 SyncResponse UnSubscribeSync(const char* type, int timeout_ms = 5000);
+void CleanupSyncResponse(SyncResponse* response);
+```
 ```
 
 ## 使用方式对比
@@ -73,24 +77,30 @@ Query("hxfnews", "uuid-123");  // 非阻塞，立即返回
 ### 同步接口使用示例
 
 ```cpp
-// 1. 初始化同步管理器
-InitSyncManager();
+// 1. 初始化同步管理器（可选注册推送回调）
+InitSyncManager(OnPushData);
 
 // 2. 发起同步请求
 LoginParam param = {...};
 SyncResponse login_response = LoginSync(&param, 10000);  // 阻塞等待响应
 
 if (login_response.code == 0) {
-    printf("登录成功: %s\n", login_response.data.c_str());
+    printf("登录成功: %s\n", login_response.data);
     
     // 继续其他操作
-    SyncResponse query_response = QuerySync("hxfnews", 15000);
+    SyncResponse query_response = QuerySync("hxfnews", "20240101000000", "20240131235959", 15000);
     if (query_response.code == 0) {
-        printf("查询成功: %s\n", query_response.data.c_str());
+        printf("查询成功: %s\n", query_response.data);
     }
+    
+    // 清理查询响应数据
+    CleanupSyncResponse(&query_response);
 }
 
-// 3. 清理
+// 3. 清理登录响应数据
+CleanupSyncResponse(&login_response);
+
+// 4. 清理同步管理器
 CleanupSyncManager();
 ```
 
@@ -107,6 +117,9 @@ CleanupSyncManager();
 | **线程安全** | 需要额外处理 | 内置支持 |
 | **调试难度** | 较难 | 较易 |
 | **代码可读性** | 较差 | 较好 |
+| **内存管理** | 自动 | 手动清理 |
+| **多线程支持** | 需要额外处理 | 内置支持 |
+| **推送回调** | 支持 | 支持 |
 
 ## 适用场景
 
@@ -125,6 +138,8 @@ CleanupSyncManager();
 3. **调试和测试**：需要清晰的执行流程
 4. **教学和演示**：需要易于理解的代码
 5. **脚本化应用**：需要顺序执行的业务逻辑
+6. **多线程应用**：需要线程安全的并发调用
+7. **内存敏感应用**：需要精确控制内存使用
 
 ## 性能对比
 
@@ -141,6 +156,9 @@ CleanupSyncManager();
 - **易于调试**：可以单步调试
 - **错误处理**：错误处理更直接
 - **学习成本**：更容易理解和使用
+- **线程安全**：内置多线程支持
+- **内存控制**：精确的内存管理
+- **推送支持**：支持推送回调功能
 
 ## 迁移建议
 
@@ -173,10 +191,76 @@ CleanupSyncManager();
 2. **错误检查**：始终检查返回码
 3. **资源管理**：确保正确初始化和清理
 4. **异常处理**：添加适当的异常处理
+5. **内存管理**：必须调用 `CleanupSyncResponse()` 清理响应数据
+6. **多线程使用**：每个线程独立初始化和清理
+7. **推送回调**：合理使用推送回调功能
 
 ## 总结
 
 - **异步接口**适合高性能、高并发的场景
-- **同步接口**适合简单、直观的业务逻辑
+- **同步接口**适合简单、直观的业务逻辑，特别是多线程应用
 - 两种接口可以并存，根据具体需求选择
 - 建议在开发初期使用同步接口，性能要求高时再考虑异步接口
+- 同步接口提供了更好的内存控制和线程安全支持
+- 两种接口都支持推送回调功能，满足实时数据需求
+
+## 多线程使用对比
+
+### 异步接口多线程使用
+
+```cpp
+// 异步接口需要额外的线程安全处理
+std::mutex callback_mutex;
+std::map<std::string, std::function<void(const char*, int)>> callbacks;
+
+void OnLogin(const char* result, int len) {
+    std::lock_guard<std::mutex> lock(callback_mutex);
+    // 处理登录响应，需要额外的线程安全处理
+    printf("登录响应: %.*s\n", len, result);
+}
+
+// 需要手动管理线程安全
+RegisterCallback(OnLogin, OnQuery, OnSubscribe, OnUnSubscribe, OnPush, OnSession);
+```
+
+### 同步接口多线程使用
+
+```cpp
+// 同步接口内置线程安全支持
+void TestThread(int thread_id) {
+    // 每个线程独立初始化
+    InitSyncManager(nullptr);
+    
+    LoginParam param = {...};
+    SyncResponse login_response = LoginSync(&param, 5000);
+    
+    if (login_response.code == 0) {
+        printf("线程 %d 登录成功\n", thread_id);
+    }
+    
+    // 清理响应数据
+    CleanupSyncResponse(&login_response);
+    
+    // 清理同步管理器
+    CleanupSyncManager();
+}
+
+// 多线程并发调用
+std::vector<std::thread> threads;
+for (int i = 0; i < 5; ++i) {
+    threads.emplace_back(TestThread, i);
+}
+for (auto& thread : threads) {
+    thread.join();
+}
+```
+
+### 多线程特性对比
+
+| 特性 | 异步接口 | 同步接口 |
+|------|----------|----------|
+| **线程安全** | 需要手动处理 | 内置支持 |
+| **数据隔离** | 需要额外设计 | 自动隔离 |
+| **内存管理** | 自动 | 手动但精确 |
+| **使用复杂度** | 较高 | 较低 |
+| **调试难度** | 较难 | 较易 |
