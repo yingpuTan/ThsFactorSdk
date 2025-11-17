@@ -1,0 +1,106 @@
+# 平台特定设置
+if(WIN32)
+    # Windows平台：复制DLL文件到输出目录
+    # 复制LHSession.dll到输出目录
+    if(LHSESSION_DLL)
+        add_custom_command(TARGET demo_sync POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${LHSESSION_DLL}
+            $<TARGET_FILE_DIR:demo_sync>
+        )
+    endif()
+    
+    # 复制其他依赖DLL
+    file(GLOB DLL_FILES "dll/*.dll")
+    foreach(DLL_FILE ${DLL_FILES})
+        add_custom_command(TARGET demo_sync POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${DLL_FILE}
+            $<TARGET_FILE_DIR:demo_sync>
+        )
+    endforeach()
+elseif(UNIX)
+    # Linux平台：复制SO文件到输出目录
+    # 复制libLHSession.so到输出目录
+    if(LHSESSION_SO)
+        add_custom_command(TARGET demo_sync POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${LHSESSION_SO}
+            $<TARGET_FILE_DIR:demo_sync>
+        )
+    endif()
+    
+    # 复制其他依赖SO
+    file(GLOB SO_FILES "so/*.so*")
+    foreach(SO_FILE ${SO_FILES})
+        add_custom_command(TARGET demo_sync POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${SO_FILE}
+            $<TARGET_FILE_DIR:demo_sync>
+        )
+    endforeach()
+    
+    # 设置可执行文件权限
+    add_custom_command(TARGET demo_sync POST_BUILD
+        COMMAND chmod +x $<TARGET_FILE:demo_sync>
+        COMMENT "设置可执行文件权限"
+    )
+endif()
+
+cmake_minimum_required(VERSION 3.10)
+project(ThsFactorSdkDemo)
+
+# 设置 C++ 标准
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 包含头文件目录
+include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/include/rapidjson)
+
+# 设置可执行文件输出目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
+# 查找 demo 源文件
+set(DEMO_SRC demo/main.cpp)
+
+# 添加可执行文件
+add_executable(demo ${DEMO_SRC})
+
+# 链接平台相关的动态库
+if(WIN32)
+    # Windows平台：链接 .lib 文件
+    target_link_libraries(demo PRIVATE "${CMAKE_SOURCE_DIR}/lib/LHSession.lib")
+elseif(UNIX)
+    # Linux平台：链接 .so 文件
+    target_link_libraries(demo PRIVATE "${CMAKE_SOURCE_DIR}/so/libLHSession.so")
+    # 设置运行时库路径
+    set_target_properties(demo PROPERTIES
+        BUILD_RPATH "${CMAKE_SOURCE_DIR}/so"
+        INSTALL_RPATH "${CMAKE_SOURCE_DIR}/so"
+    )
+endif()
+
+# 拷贝动态库到输出目录
+if(WIN32)
+    # Windows平台：拷贝 DLL 文件
+    file(GLOB DLLS "${CMAKE_SOURCE_DIR}/dll/*.dll")
+    add_custom_command(TARGET demo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${DLLS}
+        $<TARGET_FILE_DIR:demo>
+    )
+elseif(UNIX)
+    # Linux平台：拷贝 SO 文件
+    file(GLOB SOS "${CMAKE_SOURCE_DIR}/so/*.so*")
+    add_custom_command(TARGET demo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${SOS}
+        $<TARGET_FILE_DIR:demo>
+    )
+    # 设置可执行文件权限
+    add_custom_command(TARGET demo POST_BUILD
+        COMMAND chmod +x $<TARGET_FILE:demo>
+        COMMENT "设置可执行文件权限"
+    )
+endif()

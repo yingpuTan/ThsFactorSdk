@@ -2,11 +2,13 @@
 
 ## 目录结构及作用说明
 
-- `include/`：头文件目录，包含 SDK 的接口声明（如 ThsFactorSdk.h）以及 rapidjson 解析库。
-- `dll/`：动态链接库目录，包含 SDK 运行所需的所有 DLL 文件。
-- `lib/`：静态库或导入库目录，包含部分依赖的 .lib 文件（如 LHSession.lib）。
-- `demo/`：示例代码目录，包含 main.cpp 演示如何集成和调用 SDK。
-- `CMakeLists.txt`：CMake 构建脚本，用于项目编译配置。
+- `include/`：头文件目录，包含 SDK 的接口声明（如 ThsFactorSdk.h、ThsFactorSdkSync.h）以及 rapidjson 解析库。
+- `dll/`：Windows 平台动态链接库目录，包含 SDK 运行所需的所有 DLL 文件。
+- `so/`：Linux 平台动态链接库目录，包含 SDK 运行所需的所有 SO 文件。
+- `lib/`：Windows 平台静态库或导入库目录，包含部分依赖的 .lib 文件（如 LHSession.lib）。
+- `demo/`：示例代码目录，包含 main.cpp、main_sync.cpp 等演示如何集成和调用 SDK。
+- `CMakeLists.txt`：CMake 构建脚本，用于项目编译配置（支持 Windows 和 Linux 平台）。
+- `CMakeLists_sync.txt`：同步接口的 CMake 构建脚本。
 
 ---
 
@@ -30,15 +32,22 @@ ThsFactorSdk 是一个用于连接服务器、登录、查询、订阅、推送�
 
 ## 环境准备
 
-- 支持平台：Windows（需确保相关 DLL 在可执行文件同目录下）
-- 依赖库：rapidjson（已包含在 include 目录下）
+- **支持平台**：
+  - Windows（需确保相关 DLL 在可执行文件同目录下）
+  - Linux（需确保相关 SO 文件在可执行文件同目录下或系统库路径中）
+- **依赖库**：rapidjson（已包含在 include 目录下）
 
 ---
 
 ## 头文件与库文件
 
-- 头文件：`include/ThsFactorSdk.h`
-- 库文件：`dll/` 目录下的相关 DLL 文件（如 `LHSession.dll` 等）
+- **头文件**：
+  - `include/ThsFactorSdk.h`：异步接口头文件
+  - `include/ThsFactorSdkSync.h`：同步接口头文件
+- **库文件**：
+  - Windows 平台：`dll/` 目录下的相关 DLL 文件（如 `LHSession.dll` 等）
+  - Linux 平台：`so/` 目录下的相关 SO 文件（如 `libLHSession.so` 等）
+  - Windows 导入库：`lib/` 目录下的相关 LIB 文件（如 `LHSession.lib` 等）
 
 ---
 
@@ -180,7 +189,9 @@ int main() {
 - **回调参数检查**：务必判断 result 是否为 nullptr，len 是否大于 0。
 - **JSON 解析**：建议使用 rapidjson 解析回调数据，并做好字段存在性和类型判断。
 - **多线程安全**：如在多线程环境下使用，请确保线程安全。
-- **DLL 依赖**：运行时需保证所有 DLL 文件在可执行文件同目录下。
+- **DLL/SO 依赖**：
+  - Windows 平台：运行时需保证所有 DLL 文件在可执行文件同目录下。
+  - Linux 平台：运行时需保证所有 SO 文件在可执行文件同目录下，或设置 LD_LIBRARY_PATH 环境变量指向 `so/` 目录。
 
 ---
 

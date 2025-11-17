@@ -39,14 +39,14 @@ int main(int argc, char* argv[])
 
     // 发起同步登录请求
     LoginParam param;
-    param.ip = "121.52.252.12";
+    param.ip = "10.0.53.100";
     param.port = 9999;
-    param.account = "test_account";
-    param.password = "test_password";
+    param.account = "tanyingpu1";
+    param.password = "qwe13579";
     
     std::cout << "开始同步登录..." << std::endl;
     auto start_time = std::chrono::steady_clock::now();
-    SyncResponse login_response = LoginSync(&param, 5000); // 5秒超时
+    SyncResponse login_response = LoginSync(&param, 30000); // 5秒超时
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     

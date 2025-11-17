@@ -14,7 +14,7 @@
 
 // 同步响应结果结构体
 #pragma pack(push, 1)
-typedef struct {
+typedef struct SyncResponse {
     int code;              // 返回码，0表示成功
     const char* message;   // 错误信息
     const char* data;      // 响应数据
