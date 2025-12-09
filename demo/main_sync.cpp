@@ -1,8 +1,8 @@
 #include "ThsFactorSdkSync.h"
 #include <iostream>
 #include <chrono>
-#include <thread>
 #include <cstring>
+#include <string>
 
 // 推送回调函数
 void OnPushData(const char* push, int len) {
@@ -26,6 +26,29 @@ void PrintSyncResponse(const SyncResponse& response, const std::string& operatio
     std::cout << "==================" << std::endl;
 }
 
+// 基础输入工具，允许空值返回默认
+std::string PromptString(const std::string& prompt, const std::string& default_value = "") {
+    std::string input;
+    std::cout << prompt;
+    std::getline(std::cin, input);
+    if (input.empty()) return default_value;
+    return input;
+}
+
+int PromptInt(const std::string& prompt, int default_value) {
+    while (true) {
+        std::string input;
+        std::cout << prompt;
+        std::getline(std::cin, input);
+        if (input.empty()) return default_value;
+        try {
+            return std::stoi(input);
+        } catch (...) {
+            std::cout << "请输入有效的数字。" << std::endl;
+        }
+    }
+}
+
 // 主程序入口
 int main(int argc, char* argv[])
 {
@@ -37,89 +60,108 @@ int main(int argc, char* argv[])
     }
     std::cout << "同步管理器初始化成功，推送回调已注册" << std::endl;
 
-    // 发起同步登录请求
+    // 登录参数交互式输入
     LoginParam param;
-    param.ip = "10.0.53.100";
-    param.port = 9999;
-    param.account = "tanyingpu1";
-    param.password = "qwe13579";
-    
+    std::cout << "请输入登录参数（回车使用默认值）" << std::endl;
+    std::string ip = PromptString("IP [默认real-factor.forfunds.cn]: ", "real-factor.forfunds.cn");
+    param.ip = ip.c_str();
+    param.port = PromptInt("端口 [默认7001]: ", 7001);
+    std::string account = PromptString("账号 [默认test]: ", "test");
+    std::string password = PromptString("密码 [默认123456]: ", "123456");
+    param.account = account.c_str();
+    param.password = password.c_str();
+    int login_timeout = PromptInt("登录超时(ms) [默认30000]: ", 30000);
+
     std::cout << "开始同步登录..." << std::endl;
     auto start_time = std::chrono::steady_clock::now();
-    SyncResponse login_response = LoginSync(&param, 30000); // 5秒超时
+    SyncResponse login_response = LoginSync(&param, login_timeout);
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    
+
     PrintSyncResponse(login_response, "登录");
     std::cout << "登录耗时: " << duration.count() << "ms" << std::endl;
 
     if (login_response.code != 0) {
-        std::cout << "登录失败，程序退出" << std::endl;
+        std::cout << "登录失败，按回车退出程序..." << std::endl;
+        std::string pause;
+        std::getline(std::cin, pause);
         CleanupSyncResponse(&login_response);
         CleanupSyncManager();
         return -1;
     }
-    
-    // 清理登录响应数据
+
     CleanupSyncResponse(&login_response);
 
-    // 发起同步查询请求
-    std::cout << "开始同步查询..." << std::endl;
-    start_time = std::chrono::steady_clock::now();
-    SyncResponse query_response = QuerySync("test_type", "{\"rtime\": \"20251203103000\"}", "20240101000000", "20240131235959", 10000); // 10秒超时
-    end_time = std::chrono::steady_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    
-    PrintSyncResponse(query_response, "查询");
-    std::cout << "查询耗时: " << duration.count() << "ms" << std::endl;
-    
-    // 清理查询响应数据
-    CleanupSyncResponse(&query_response);
+    bool running = true;
+    while (running) {
+        std::cout << "\n请选择操作：" << std::endl;
+        std::cout << "1. 查询" << std::endl;
+        std::cout << "2. 订阅" << std::endl;
+        std::cout << "3. 取消订阅" << std::endl;
+        std::cout << "4. 登出" << std::endl;
+        std::cout << "0. 退出程序" << std::endl;
+        std::cout << "请输入选项: ";
 
-    // 发起同步订阅请求
-    std::cout << "开始同步订阅..." << std::endl;
-    start_time = std::chrono::steady_clock::now();
-    SyncResponse subscribe_response = SubscribeSync("test_type", 5000); // 5秒超时
-    end_time = std::chrono::steady_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    
-    PrintSyncResponse(subscribe_response, "订阅");
-    std::cout << "订阅耗时: " << duration.count() << "ms" << std::endl;
-    
-    // 清理订阅响应数据
-    CleanupSyncResponse(&subscribe_response);
+        std::string choice;
+        std::getline(std::cin, choice);
 
-    // 等待一段时间接收推送数据
-    std::cout << "等待推送数据..." << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+        if (choice == "1") {
+            std::string type = PromptString("查询类型(type): ");
+            std::string data = PromptString("查询数据(data，建议JSON): ");
+            std::string stime = PromptString("开始时间(stime, 格式yyyymmddHHMMSS): ");
+            std::string etime = PromptString("结束时间(etime, 格式yyyymmddHHMMSS): ");
+            int timeout = PromptInt("超时(ms) [默认10000]: ", 10000);
 
-    // 发起同步取消订阅请求
-    std::cout << "开始同步取消订阅..." << std::endl;
-    start_time = std::chrono::steady_clock::now();
-    SyncResponse unsubscribe_response = UnSubscribeSync("test_type", 5000); // 5秒超时
-    end_time = std::chrono::steady_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    
-    PrintSyncResponse(unsubscribe_response, "取消订阅");
-    std::cout << "取消订阅耗时: " << duration.count() << "ms" << std::endl;
-    
-    // 清理取消订阅响应数据
-    CleanupSyncResponse(&unsubscribe_response);
+            start_time = std::chrono::steady_clock::now();
+            SyncResponse query_response = QuerySync(type.c_str(), data.c_str(), stime.c_str(), etime.c_str(), timeout);
+            end_time = std::chrono::steady_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
-    // 发起同步登出请求
-    std::cout << "开始同步登出..." << std::endl;
-    start_time = std::chrono::steady_clock::now();
-    SyncResponse logout_response = LogoutSync(5000); // 5秒超时
-    end_time = std::chrono::steady_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    
-    PrintSyncResponse(logout_response, "登出");
-    std::cout << "登出耗时: " << duration.count() << "ms" << std::endl;
-    
-    // 清理登出响应数据
-    CleanupSyncResponse(&logout_response);
+            PrintSyncResponse(query_response, "查询");
+            std::cout << "查询耗时: " << duration.count() << "ms" << std::endl;
+            CleanupSyncResponse(&query_response);
+        } else if (choice == "2") {
+            std::string type = PromptString("订阅类型(type): ");
+            int timeout = PromptInt("超时(ms) [默认5000]: ", 5000);
 
-    // 清理同步管理器
+            start_time = std::chrono::steady_clock::now();
+            SyncResponse subscribe_response = SubscribeSync(type.c_str(), timeout);
+            end_time = std::chrono::steady_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+            PrintSyncResponse(subscribe_response, "订阅");
+            std::cout << "订阅耗时: " << duration.count() << "ms" << std::endl;
+            CleanupSyncResponse(&subscribe_response);
+        } else if (choice == "3") {
+            std::string type = PromptString("取消订阅类型(type): ");
+            int timeout = PromptInt("超时(ms) [默认5000]: ", 5000);
+
+            start_time = std::chrono::steady_clock::now();
+            SyncResponse unsubscribe_response = UnSubscribeSync(type.c_str(), timeout);
+            end_time = std::chrono::steady_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+            PrintSyncResponse(unsubscribe_response, "取消订阅");
+            std::cout << "取消订阅耗时: " << duration.count() << "ms" << std::endl;
+            CleanupSyncResponse(&unsubscribe_response);
+        } else if (choice == "4") {
+            int timeout = PromptInt("登出超时(ms) [默认5000]: ", 5000);
+
+            start_time = std::chrono::steady_clock::now();
+            SyncResponse logout_response = LogoutSync(timeout);
+            end_time = std::chrono::steady_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+            PrintSyncResponse(logout_response, "登出");
+            std::cout << "登出耗时: " << duration.count() << "ms" << std::endl;
+            CleanupSyncResponse(&logout_response);
+        } else if (choice == "0") {
+            running = false;
+        } else {
+            std::cout << "无效选项，请重新选择。" << std::endl;
+        }
+    }
+
     CleanupSyncManager();
     std::cout << "程序执行完成" << std::endl;
 
