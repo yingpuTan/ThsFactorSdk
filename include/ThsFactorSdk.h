@@ -67,11 +67,12 @@ extern "C"
     /// 发送请求
     /// </summary>
     /// <param name="type">请求类型</param>
+    /// <param name="param">请求参数</param>
     /// <param name="begin">开始时间，格式为YYYYMMDDHHmmss</param>
     /// <param name="end">结束时间，格式为YYYYMMDDHHmmss</param>
     /// <param name="uuid">请求唯一标识格式为xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</param>
     /// <returns>0：成功</returns>
-    COSMOS_THSFACTOR_SDK_EXPORT int Query(const char* type, const char* begin, const char* end, const char* uuid);
+    COSMOS_THSFACTOR_SDK_EXPORT int Query(const char* type, const char* param, const char* begin, const char* end, const char* uuid);
 
     /// <summary>
     /// 发送请求

@@ -56,11 +56,12 @@ extern "C" {
     /// 同步查询接口
     /// </summary>
     /// <param name="type">请求类型</param>
+    /// <param name="param">请求参数</param>
     /// <param name="begin">开始时间，格式为YYYYMMDDHHmmss</param>
     /// <param name="end">结束时间，格式为YYYYMMDDHHmmss</param>
     /// <param name="timeout_ms">超时时间（毫秒），默认10000ms</param>
     /// <returns>同步响应结果</returns>
-    COSMOS_THSFACTOR_SDK_EXPORT SyncResponse QuerySync(const char* type, const char* begin, const char* end, int timeout_ms = 10000);
+    COSMOS_THSFACTOR_SDK_EXPORT SyncResponse QuerySync(const char* type, const char* param, const char* begin, const char* end, int timeout_ms = 10000);
 
     /// <summary>
     /// 同步订阅接口

@@ -187,7 +187,7 @@ void OnSession(const char* result, int len)
         printf("session状态：登录成功 code:%s msg:%s\n", strCode.c_str(), strMsg.c_str());
         // 生成唯一请求ID，发起查询
         std::string strUUid = GenerateUuid();
-        Query("hxfnews", "20240101000000", "20240131235959", strUUid.c_str());
+        Query("hxfnews", "{\"rtime\": \"20251203103000\"}", "20240101000000", "20240131235959", strUUid.c_str());
         // 生成唯一请求ID，发起订阅
         strUUid = GenerateUuid();
         Subscribe("hxfnews", strUUid.c_str());

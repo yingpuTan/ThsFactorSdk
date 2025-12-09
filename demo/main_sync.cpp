@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
     // 发起同步查询请求
     std::cout << "开始同步查询..." << std::endl;
     start_time = std::chrono::steady_clock::now();
-    SyncResponse query_response = QuerySync("test_type", "20240101000000", "20240131235959", 10000); // 10秒超时
+    SyncResponse query_response = QuerySync("test_type", "{\"rtime\": \"20251203103000\"}", "20240101000000", "20240131235959", 10000); // 10秒超时
     end_time = std::chrono::steady_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     
