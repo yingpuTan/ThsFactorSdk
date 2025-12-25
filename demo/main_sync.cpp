@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cstring>
 #include <string>
+#include <fstream>
+#include <map>
 
 // 推送回调函数
 void OnPushData(const char* push, int len) {
@@ -26,32 +28,103 @@ void PrintSyncResponse(const SyncResponse& response, const std::string& operatio
     std::cout << "==================" << std::endl;
 }
 
-// 基础输入工具，允许空值返回默认
-std::string PromptString(const std::string& prompt, const std::string& default_value = "") {
-    std::string input;
-    std::cout << prompt;
-    std::getline(std::cin, input);
-    if (input.empty()) return default_value;
-    return input;
-}
+// 简单的INI配置文件读取类
+class ConfigReader {
+private:
+    std::map<std::string, std::map<std::string, std::string>> config;
 
-int PromptInt(const std::string& prompt, int default_value) {
-    while (true) {
-        std::string input;
-        std::cout << prompt;
-        std::getline(std::cin, input);
-        if (input.empty()) return default_value;
+    // 去除字符串首尾空白
+    std::string trim(const std::string& str) {
+        size_t first = str.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) return "";
+        size_t last = str.find_last_not_of(" \t\r\n");
+        return str.substr(first, (last - first + 1));
+    }
+
+public:
+    // 从文件加载配置
+    bool LoadFromFile(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            std::cout << "无法打开配置文件: " << filename << std::endl;
+            return false;
+        }
+
+        std::string current_section;
+        std::string line;
+        
+        while (std::getline(file, line)) {
+            line = trim(line);
+            
+            // 跳过空行和注释
+            if (line.empty() || line[0] == '#' || line[0] == ';') {
+                continue;
+            }
+            
+            // 检查是否是节（section）
+            if (line[0] == '[' && line.back() == ']') {
+                current_section = trim(line.substr(1, line.length() - 2));
+                continue;
+            }
+            
+            // 解析键值对
+            size_t pos = line.find('=');
+            if (pos != std::string::npos) {
+                std::string key = trim(line.substr(0, pos));
+                std::string value = trim(line.substr(pos + 1));
+                if (!current_section.empty() && !key.empty()) {
+                    config[current_section][key] = value;
+                }
+            }
+        }
+        
+        file.close();
+        return true;
+    }
+
+    // 获取字符串值
+    std::string GetString(const std::string& section, const std::string& key, const std::string& default_value = "") {
+        auto sec_it = config.find(section);
+        if (sec_it != config.end()) {
+            auto key_it = sec_it->second.find(key);
+            if (key_it != sec_it->second.end()) {
+                return key_it->second;
+            }
+        }
+        return default_value;
+    }
+
+    // 获取整数值
+    int GetInt(const std::string& section, const std::string& key, int default_value = 0) {
+        std::string value = GetString(section, key, "");
+        if (value.empty()) return default_value;
         try {
-            return std::stoi(input);
+            return std::stoi(value);
         } catch (...) {
-            std::cout << "请输入有效的数字。" << std::endl;
+            return default_value;
         }
     }
-}
+};
 
 // 主程序入口
 int main(int argc, char* argv[])
 {
+    // 读取配置文件
+    ConfigReader config;
+    std::string config_file = "init.ini";
+    if (argc > 1) {
+        config_file = argv[1];
+    }
+    
+    if (!config.LoadFromFile(config_file)) {
+        std::cout << "配置文件加载失败，请确保 " << config_file << " 文件存在！" << std::endl;
+        std::cout << "按回车退出程序..." << std::endl;
+        std::string pause;
+        std::getline(std::cin, pause);
+        return -1;
+    }
+    std::cout << "配置文件加载成功: " << config_file << std::endl;
+
     // 初始化同步管理器，注册推送回调
     int ret = InitSyncManager(OnPushData);
     if (ret != 0) {
@@ -60,17 +133,20 @@ int main(int argc, char* argv[])
     }
     std::cout << "同步管理器初始化成功，推送回调已注册" << std::endl;
 
-    // 登录参数交互式输入
+    // 从配置文件读取登录参数
+    std::string ip = config.GetString("login", "ip", "real-factor.forfunds.cn");
+    int port = config.GetInt("login", "port", 7001);
+    std::string account = config.GetString("login", "account", "test");
+    std::string password = config.GetString("login", "password", "123456");
+    int login_timeout = config.GetInt("login", "login_timeout", 30000);
+    
     LoginParam param;
-    std::cout << "请输入登录参数（回车使用默认值）" << std::endl;
-    std::string ip = PromptString("IP [默认real-factor.forfunds.cn]: ", "real-factor.forfunds.cn");
     param.ip = ip.c_str();
-    param.port = PromptInt("端口 [默认7001]: ", 7001);
-    std::string account = PromptString("账号 [默认test]: ", "test");
-    std::string password = PromptString("密码 [默认123456]: ", "123456");
+    param.port = port;
     param.account = account.c_str();
     param.password = password.c_str();
-    int login_timeout = PromptInt("登录超时(ms) [默认30000]: ", 30000);
+    
+    std::cout << "登录参数: IP=" << ip << ", Port=" << port << ", Account=" << account << std::endl;
 
     std::cout << "开始同步登录..." << std::endl;
     auto start_time = std::chrono::steady_clock::now();
@@ -106,11 +182,19 @@ int main(int argc, char* argv[])
         std::getline(std::cin, choice);
 
         if (choice == "1") {
-            std::string type = PromptString("查询类型(type): ");
-            std::string data = PromptString("查询数据(data，建议JSON): ");
-            std::string stime = PromptString("开始时间(stime, 格式yyyymmddHHMMSS): ");
-            std::string etime = PromptString("结束时间(etime, 格式yyyymmddHHMMSS): ");
-            int timeout = PromptInt("超时(ms) [默认10000]: ", 10000);
+            std::string type = config.GetString("query", "type", "");
+            std::string data = config.GetString("query", "data", "");
+            std::string stime = config.GetString("query", "stime", "");
+            std::string etime = config.GetString("query", "etime", "");
+            int timeout = config.GetInt("query", "timeout", 10000);
+            
+            if (type.empty() || data.empty() || stime.empty() || etime.empty()) {
+                std::cout << "查询参数不完整，请检查配置文件中的 [query] 节" << std::endl;
+                continue;
+            }
+            
+            std::cout << "查询参数: type=" << type << ", data=" << data 
+                      << ", stime=" << stime << ", etime=" << etime << std::endl;
 
             start_time = std::chrono::steady_clock::now();
             SyncResponse query_response = QuerySync(type.c_str(), data.c_str(), stime.c_str(), etime.c_str(), timeout);
@@ -121,8 +205,15 @@ int main(int argc, char* argv[])
             std::cout << "查询耗时: " << duration.count() << "ms" << std::endl;
             CleanupSyncResponse(&query_response);
         } else if (choice == "2") {
-            std::string type = PromptString("订阅类型(type): ");
-            int timeout = PromptInt("超时(ms) [默认5000]: ", 5000);
+            std::string type = config.GetString("subscribe", "type", "");
+            int timeout = config.GetInt("subscribe", "timeout", 5000);
+            
+            if (type.empty()) {
+                std::cout << "订阅类型为空，请检查配置文件中的 [subscribe] 节" << std::endl;
+                continue;
+            }
+            
+            std::cout << "订阅参数: type=" << type << std::endl;
 
             start_time = std::chrono::steady_clock::now();
             SyncResponse subscribe_response = SubscribeSync(type.c_str(), timeout);
@@ -133,8 +224,15 @@ int main(int argc, char* argv[])
             std::cout << "订阅耗时: " << duration.count() << "ms" << std::endl;
             CleanupSyncResponse(&subscribe_response);
         } else if (choice == "3") {
-            std::string type = PromptString("取消订阅类型(type): ");
-            int timeout = PromptInt("超时(ms) [默认5000]: ", 5000);
+            std::string type = config.GetString("unsubscribe", "type", "");
+            int timeout = config.GetInt("unsubscribe", "timeout", 5000);
+            
+            if (type.empty()) {
+                std::cout << "取消订阅类型为空，请检查配置文件中的 [unsubscribe] 节" << std::endl;
+                continue;
+            }
+            
+            std::cout << "取消订阅参数: type=" << type << std::endl;
 
             start_time = std::chrono::steady_clock::now();
             SyncResponse unsubscribe_response = UnSubscribeSync(type.c_str(), timeout);
@@ -145,7 +243,8 @@ int main(int argc, char* argv[])
             std::cout << "取消订阅耗时: " << duration.count() << "ms" << std::endl;
             CleanupSyncResponse(&unsubscribe_response);
         } else if (choice == "4") {
-            int timeout = PromptInt("登出超时(ms) [默认5000]: ", 5000);
+            int timeout = config.GetInt("logout", "timeout", 5000);
+            std::cout << "登出参数: timeout=" << timeout << "ms" << std::endl;
 
             start_time = std::chrono::steady_clock::now();
             SyncResponse logout_response = LogoutSync(timeout);
